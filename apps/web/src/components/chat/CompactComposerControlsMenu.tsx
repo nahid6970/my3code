@@ -1,6 +1,6 @@
 import type { RuntimeMode } from "@t3tools/contracts";
 import { useGT } from "gt-react";
-import { memo, useRef } from "react";
+import { memo, useRef, type ReactNode } from "react";
 import { EllipsisIcon } from "lucide-react";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { ComposerControl, ComposerControlIcon } from "./ComposerControl";
@@ -12,6 +12,8 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
   runtimeMode: RuntimeMode;
   runtimeModeOptions: ReadonlyArray<RuntimeModeOption>;
   showPermissions: boolean;
+  showEffort?: boolean;
+  effortControl?: ReactNode;
   size?: "sm" | "xs";
   /** Close the portaled popup when its trigger hides. */
   hidden?: boolean;
@@ -43,6 +45,8 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
         <ComposerControlIcon icon={EllipsisIcon} size={size} />
       </MenuTrigger>
       <MenuPopup align="start" {...composerFloatingLayerProps}>
+        {props.showEffort ? <div className="px-2 py-1.5">{props.effortControl}</div> : null}
+        {props.showEffort && props.showPermissions ? <div className="mx-2 border-t border-border/70" /> : null}
         {props.showPermissions ? (
           <ComposerPermissionsSection
             runtimeMode={props.runtimeMode}

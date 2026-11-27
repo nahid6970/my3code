@@ -8,7 +8,7 @@ import type { ProviderOptionDescriptor, RuntimeMode } from "@t3tools/contracts";
 import type { EffortDisplay } from "@t3tools/contracts/settings";
 import { getProviderOptionCurrentLabel } from "@t3tools/shared/model";
 import { msg, T, useGT, useMessages } from "gt-react";
-import { CheckIcon, ChevronRightIcon, ChevronUpIcon, WorkflowIcon } from "lucide-react";
+import { BrainIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, WorkflowIcon } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, use, useRef, useState } from "react";
 
 import { m, type MessageResolver } from "~/i18n/messages";
@@ -34,6 +34,7 @@ import {
   useTraitsSelection,
 } from "./TraitsPicker";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
+import { ComposerControl } from "./ComposerControl";
 
 type SelectDescriptor = Extract<ProviderOptionDescriptor, { type: "select" }>;
 type BooleanDescriptor = Extract<ProviderOptionDescriptor, { type: "boolean" }>;
@@ -324,6 +325,51 @@ function EffortLevels(props: { traits: TraitsSelectionInput }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+/** A standalone reasoning selector, matching the model and access controls in the composer. */
+export function ComposerReasoningControl(props: {
+  traits: TraitsSelectionInput | null;
+  size: ComposerControlSize;
+}) {
+  return props.traits ? <ComposerReasoningControlInner traits={props.traits} size={props.size} /> : null;
+}
+
+function ComposerReasoningControlInner(props: { traits: TraitsSelectionInput; size: ComposerControlSize }) {
+  const gt = useGT();
+  const [open, setOpen] = useState(false);
+  const traits = useTraitsSelection(props.traits);
+  const control = columnControls(traits.selectDescriptors, traits.booleanDescriptors).effort;
+  if (!control || traits.modelIsUnavailable) return null;
+  const descriptor = control.descriptor;
+  const selected = control.kind === "select"
+    ? selectableProviderOptionChoices(descriptor).find((choice) => choice.id === traits.selectValue(descriptor))?.label
+    : descriptor.currentValue ? gt("On", { $context: "option state" }) : gt("Off", { $context: "option state" });
+  return (
+    <Menu open={open} onOpenChange={setOpen} onOpenChangeComplete={(isOpen) => {
+      if (!isOpen) return;
+      const checked = document.querySelector<HTMLElement>('[data-composer-reasoning-popup] [data-effort-row][aria-checked="true"]');
+      checked?.focus({ preventScroll: true });
+    }}>
+      <MenuTrigger render={<ComposerControl
+        type="button"
+        size={props.size}
+        aria-label={gt("Reasoning: {level}", { level: selected ?? descriptor.label })}
+        data-composer-shortcut="composer.effort"
+        className="shrink-0 data-popup-open:bg-accent data-popup-open:text-foreground"
+      />}>
+        <BrainIcon aria-hidden="true" className="size-3.5" />
+        <span data-composer-control-label className="max-w-24 truncate">{selected ?? descriptor.label}</span>
+        <ChevronDownIcon aria-hidden="true" className="size-3" />
+      </MenuTrigger>
+      <MenuPopup align="start" className="w-56" data-composer-reasoning-popup {...composerFloatingLayerProps}>
+        <div className={COLUMN_LABEL}>{descriptor.label}</div>
+        <div className="flex max-h-72 flex-col gap-0.5 overflow-y-auto px-1.5 pb-1.5" onKeyDownCapture={moveBetweenRows}>
+          <EffortLevels traits={props.traits} />
+        </div>
+      </MenuPopup>
+    </Menu>
   );
 }
 
@@ -725,16 +771,17 @@ export function ComposerPickerFooter(props: {
   runtimeMode: RuntimeMode;
   runtimeModeOptions: ReadonlyArray<RuntimeModeOption>;
   onRuntimeModeChange: (mode: RuntimeMode) => void;
+  showPermissions?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/70 bg-muted/40 px-3 py-2">
       {props.traits ? <SpeedControl traits={props.traits} /> : null}
       {props.traits ? <UltracodeControl traits={props.traits} /> : null}
-      <PermissionsMenu
+      {props.showPermissions !== false ? <PermissionsMenu
         runtimeMode={props.runtimeMode}
         options={props.runtimeModeOptions}
         onChange={props.onRuntimeModeChange}
-      />
+      /> : null}
     </div>
   );
 }

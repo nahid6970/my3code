@@ -25,9 +25,8 @@ import { resolveComposerTraitsInput } from "./composerProviderState";
 import { useApplyThreadModelPick } from "./useApplyThreadModelPick";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import {
-  ComposerEffortColumn,
+  ComposerReasoningControl,
   ComposerPickerFooter,
-  describeComposerEffort,
 } from "./ComposerModelEffort";
 import type { useComposerProviderModel } from "./useComposerProviderModel";
 import { resolveComposerControlsOwnership } from "./composerControlsOwnership";
@@ -139,6 +138,7 @@ export function ComposerControlsBar(props: {
     hiddenBlockCount: restingHiddenBlockCount,
     hiddenBlockIds: hiddenRestingBlockIds,
     overflowShowsPermissions,
+    overflowShowsEffort,
     pickerOwnsModeShortcut,
   } = resolveComposerControlsOwnership({
     matchesDefault: accessMatchesDefault || props.permissionsShownInStrip,
@@ -164,10 +164,12 @@ export function ComposerControlsBar(props: {
     promptUltrathink,
     onPromptEdit,
   });
-  const effort = describeComposerEffort(traitsInput, props.effortDisplay, controlSize, m);
-  const restingBlockDefs = showModeBlock
-    ? [
+  const restingBlockDefs = [
         {
+          id: "effort",
+          content: <ComposerReasoningControl traits={traitsInput} size={controlSize} />,
+        },
+        ...(showModeBlock ? [{
           id: "mode",
           content: (
             <ComposerFooterModeControls
@@ -180,9 +182,8 @@ export function ComposerControlsBar(props: {
               onRuntimeModeChange={handleRuntimeModeChange}
             />
           ),
-        },
-      ]
-    : [];
+        }] : []),
+      ];
   // Its own element, so typing (which rebuilds the controls around it) leaves it cached.
   const composerModelPicker = (
     <ComposerModelPicker
@@ -219,18 +220,14 @@ export function ComposerControlsBar(props: {
         MODEL_TRIGGER_STATES,
         composerControlsCollapsed ? "min-w-13 shrink text-xs!" : "min-w-13",
       )}
-      triggerSuffix={effort.suffix}
-      triggerDetail={effort.detail}
-      triggerShortcuts={
-        pickerOwnsModeShortcut ? "composer.effort composer.mode" : "composer.effort"
-      }
-      effortColumn={<ComposerEffortColumn traits={traitsInput} />}
+      triggerShortcuts={pickerOwnsModeShortcut ? "composer.mode" : undefined}
       footer={
         <ComposerPickerFooter
           traits={traitsInput}
           runtimeMode={compatibleRuntimeMode}
           runtimeModeOptions={compatibleRuntimeModeOptions}
           onRuntimeModeChange={handleRuntimeModeChange}
+          showPermissions={accessDisplay === "hidden" && !overflowShowsPermissions}
         />
       }
       terminalOpen={terminalOpen}
@@ -306,6 +303,8 @@ export function ComposerControlsBar(props: {
             hidden={composerControlsHidden || hiddenRestingBlockIds.length === 0}
             // Permissions join the overflow only when their normal home is in it.
             showPermissions={overflowShowsPermissions}
+            showEffort={overflowShowsEffort}
+            effortControl={<ComposerReasoningControl traits={traitsInput} size={controlSize} />}
             onRuntimeModeChange={handleRuntimeModeChange}
           />
         </div>
