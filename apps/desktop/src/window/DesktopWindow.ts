@@ -238,6 +238,182 @@ function buildContextMenuElementScript(
   })()`;
 }
 
+function buildContextMenuInspectorModeScript(): string {
+  return `(() => {
+    window.__t3CodeElementInspector?.close?.();
+    let picking = false;
+    let overlay = null;
+    let hint = null;
+    let panel = null;
+    let cursorStyle = null;
+
+    const unique = (selector) => {
+      try { return document.querySelectorAll(selector).length === 1; }
+      catch { return false; }
+    };
+    const getSelector = (target) => {
+      const parts = [];
+      let current = target;
+      const stableAttributes = ["data-testid", "data-test", "data-cy", "aria-label", "role", "name"];
+      while (current && current.nodeType === Node.ELEMENT_NODE) {
+        const tag = current.localName.toLowerCase();
+        let part = tag;
+        if (current.id) {
+          const idSelector = "#" + CSS.escape(current.id);
+          if (unique(idSelector)) part = idSelector;
+        }
+        if (part === tag) {
+          for (const name of stableAttributes) {
+            const value = current.getAttribute(name);
+            if (!value) continue;
+            const candidate = tag + "[" + name + "=" + JSON.stringify(value) + "]";
+            if (unique(candidate)) { part = candidate; break; }
+          }
+        }
+        if (part === tag && current.parentElement) {
+          const siblings = Array.from(current.parentElement.children).filter((sibling) => sibling.localName === current.localName);
+          if (siblings.length > 1) part += ":nth-of-type(" + (siblings.indexOf(current) + 1) + ")";
+        }
+        parts.unshift(part);
+        if (unique(parts.join(" > ")) || current === document.body) break;
+        current = current.parentElement;
+      }
+      return parts.join(" > ");
+    };
+    const collect = (target) => {
+      const computed = getComputedStyle(target);
+      const computedStyles = ["display","position","width","height","margin","padding","background","color","font-size","font-family","border","flex","z-index","opacity","overflow"]
+        .map((name) => name + ": " + computed.getPropertyValue(name)).join(";\\n") + ";";
+      const attributes = ["id", "data-testid", "data-test", "data-cy", "role", "aria-label", "aria-labelledby", "type", "name", "title"]
+        .map((name) => [name, target.getAttribute(name)])
+        .filter(([, value]) => value !== null)
+        .map(([name, value]) => name + "=" + JSON.stringify(value));
+      return [
+        ["CSS Selector", getSelector(target)],
+        ["Tag", target.localName.toLowerCase()],
+        ["Classes", target.getAttribute("class") || "(none)"],
+        ["ID", target.id || "(none)"],
+        ["Attributes", attributes.join(" \\n") || "(none)"],
+        ["Inline Style", target.style?.cssText || "(none)"],
+        ["Computed Style", computedStyles],
+        ["HTML (open tag)", target.cloneNode(false).outerHTML],
+        ["Text Content", (target.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 180) || "(none)"],
+      ];
+    };
+    const ensureOverlay = () => {
+      if (overlay) return;
+      overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;pointer-events:none;z-index:2147483646;background:rgba(59,130,246,.22);border:2px solid #3b82f6;box-sizing:border-box";
+      document.body.appendChild(overlay);
+    };
+    const highlight = (target) => {
+      if (!(target instanceof Element) || target === overlay || panel?.contains(target) || hint?.contains(target)) return;
+      ensureOverlay();
+      const rect = target.getBoundingClientRect();
+      Object.assign(overlay.style, { display: "block", top: rect.top + "px", left: rect.left + "px", width: rect.width + "px", height: rect.height + "px" });
+    };
+    const removePickingListeners = () => {
+      picking = false;
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("click", onPick, true);
+      cursorStyle?.remove();
+      cursorStyle = null;
+      hint?.remove();
+      hint = null;
+    };
+    const close = () => {
+      removePickingListeners();
+      overlay?.remove();
+      overlay = null;
+      panel?.remove();
+      panel = null;
+      document.removeEventListener("keydown", onKeyDown, true);
+      if (window.__t3CodeElementInspector?.close === close) delete window.__t3CodeElementInspector;
+    };
+    const showPanel = (target) => {
+      panel?.remove();
+      panel = document.createElement("section");
+      panel.id = "__t3code_element_inspector";
+      panel.style.cssText = "position:fixed;top:52px;right:12px;width:380px;max-width:calc(100vw - 24px);max-height:calc(100vh - 64px);overflow:auto;background:#1e1e2e;color:#cdd6f4;font:12px/1.45 'JetBrains Mono',Consolas,monospace;border:1px solid #3b82f6;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:2147483647;user-select:text";
+      const header = document.createElement("header");
+      header.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#181825;border-bottom:1px solid #313244;font-weight:700;font-size:13px";
+      const title = document.createElement("span");
+      title.textContent = "🔍 T3 UI Inspector";
+      const actions = document.createElement("div");
+      actions.style.cssText = "display:flex;align-items:center;gap:8px";
+      const reselect = document.createElement("button");
+      reselect.type = "button";
+      reselect.textContent = "Inspect another";
+      reselect.style.cssText = "background:#313244;border:1px solid #45475a;color:#cdd6f4;border-radius:4px;padding:3px 8px;cursor:pointer;font:11px 'JetBrains Mono',Consolas,monospace";
+      reselect.addEventListener("click", () => { panel?.remove(); panel = null; enterPicking(); });
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.textContent = "×";
+      closeButton.title = "Close inspector";
+      closeButton.style.cssText = "background:none;border:0;color:#f38ba8;cursor:pointer;font-size:18px;padding:0 4px";
+      closeButton.addEventListener("click", close);
+      actions.append(reselect, closeButton);
+      header.append(title, actions);
+      const tagLine = document.createElement("div");
+      tagLine.textContent = "<" + target.localName.toLowerCase() + ">";
+      tagLine.style.cssText = "padding:6px 12px;color:#89b4fa;font-size:13px;border-bottom:1px solid #313244;background:#181825";
+      const rows = document.createElement("div");
+      rows.style.padding = "6px 0";
+      for (const [label, value] of collect(target)) {
+        const row = document.createElement("div");
+        row.style.cssText = "padding:6px 12px;border-bottom:1px solid #313244;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 8px";
+        const labelNode = document.createElement("div");
+        labelNode.textContent = label;
+        labelNode.style.cssText = "grid-column:1;grid-row:1;color:#a6e3a1;font-size:10px;text-transform:uppercase;letter-spacing:.05em;opacity:.8";
+        const valueNode = document.createElement("pre");
+        valueNode.textContent = value;
+        valueNode.style.cssText = "grid-column:1;grid-row:2;margin:0;white-space:pre-wrap;word-break:break-word;color:#cdd6f4;font:11px/1.4 'JetBrains Mono',Consolas,monospace;max-height:80px;overflow:auto";
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.textContent = "Copy";
+        copyButton.style.cssText = "grid-column:2;grid-row:1/3;align-self:center;background:#313244;border:1px solid #45475a;color:#cdd6f4;border-radius:4px;padding:3px 8px;cursor:pointer;font:11px 'JetBrains Mono',Consolas,monospace";
+        copyButton.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(value); copyButton.textContent = "✓"; setTimeout(() => { copyButton.textContent = "Copy"; }, 1200); }
+          catch {}
+        });
+        row.append(labelNode, valueNode, copyButton);
+        rows.appendChild(row);
+      }
+      panel.append(header, tagLine, rows);
+      document.body.appendChild(panel);
+    };
+    const onMove = (event) => highlight(event.target);
+    const onPick = (event) => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      if (!picking || !target || panel?.contains(target) || hint?.contains(target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      removePickingListeners();
+      highlight(target);
+      showPanel(target);
+    };
+    const onKeyDown = (event) => { if (event.key === "Escape") close(); };
+    function enterPicking() {
+      picking = true;
+      ensureOverlay();
+      cursorStyle = document.createElement("style");
+      cursorStyle.textContent = "*{cursor:crosshair!important}";
+      document.head.appendChild(cursorStyle);
+      hint = document.createElement("div");
+      hint.textContent = "Move over an element and click to inspect · Esc to cancel";
+      hint.style.cssText = "position:fixed;top:52px;left:50%;transform:translateX(-50%);padding:7px 12px;background:#181825;color:#cdd6f4;border:1px solid #3b82f6;border-radius:6px;font:12px 'JetBrains Mono',Consolas,monospace;z-index:2147483647;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.4)";
+      document.body.appendChild(hint);
+      document.addEventListener("mousemove", onMove, true);
+      document.addEventListener("click", onPick, true);
+    }
+    document.addEventListener("keydown", onKeyDown, true);
+    window.__t3CodeElementInspector = { close };
+    enterPicking();
+    return true;
+  })()`;
+}
+
 function formatContextMenuElementDetails(details: ContextMenuElementDetails): string {
   return [
     "T3 Code UI element",
@@ -274,15 +450,11 @@ function copyContextMenuElement(
   );
 }
 
-function inspectContextMenuElement(
-  frame: Electron.WebFrameMain,
-  x: number,
-  y: number,
-): Effect.Effect<void> {
+function inspectContextMenuElement(frame: Electron.WebFrameMain): Effect.Effect<void> {
   return Effect.tryPromise({
     try: async () => {
       if (frame.isDestroyed()) return null;
-      return await frame.executeJavaScript(buildContextMenuElementScript(x, y, true));
+      return await frame.executeJavaScript(buildContextMenuInspectorModeScript());
     },
     catch: (cause) => new ContextMenuElementCopyError({ cause }),
   }).pipe(
@@ -1009,9 +1181,7 @@ export const make = Effect.gen(function* () {
             {
               label: m(msg("Inspect UI element")),
               click: () =>
-                void runPromise(
-                  inspectContextMenuElement(inspectorFrame, params.x, params.y),
-                ),
+                void runPromise(inspectContextMenuElement(inspectorFrame)),
             },
             {
               label: m(msg("Copy UI element details")),
