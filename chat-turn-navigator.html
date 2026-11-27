@@ -1,0 +1,224 @@
+<div id="chat-turn-navigator" class="viz-dotted-background" aria-label="Chat turn navigator preview">
+  <style>
+    #chat-turn-navigator {
+      --t3-bg: light-dark(#f4f4f5, #09090b);
+      --t3-panel: light-dark(#ffffff, #111113);
+      --t3-row: light-dark(#f4f4f5, #19191c);
+      --t3-border: light-dark(#dedee2, #29292e);
+      --t3-text: light-dark(#18181b, #f4f4f5);
+      --t3-muted: light-dark(#71717a, #a1a1aa);
+      --t3-line: light-dark(#a1a1aa, #f4f4f5);
+      --t3-accent: light-dark(#6d5dfc, #a69bff);
+      color: var(--t3-text);
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      padding: 16px;
+    }
+    #chat-turn-navigator * { box-sizing: border-box; }
+    #chat-turn-navigator .window {
+      background: var(--t3-bg);
+      border: 1px solid var(--t3-border);
+      border-radius: 14px;
+      margin: 0 auto;
+      max-width: 680px;
+      overflow: hidden;
+    }
+    #chat-turn-navigator .topbar {
+      align-items: center;
+      border-bottom: 1px solid var(--t3-border);
+      display: flex;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 16px;
+    }
+    #chat-turn-navigator .brand {
+      align-items: center;
+      background: var(--t3-row);
+      border-radius: 7px;
+      color: var(--t3-muted);
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 600;
+      height: 24px;
+      justify-content: center;
+      width: 24px;
+    }
+    #chat-turn-navigator .thread-name { font-size: 13px; font-weight: 500; }
+    #chat-turn-navigator .layout {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      min-height: 408px;
+    }
+    #chat-turn-navigator .navigator {
+      align-items: center;
+      border-right: 1px solid var(--t3-border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 8px 16px;
+    }
+    #chat-turn-navigator .nav-label {
+      color: var(--t3-muted);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .06em;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+    #chat-turn-navigator .track {
+      display: grid;
+      flex: 1;
+      grid-template-rows: repeat(5, minmax(42px, 1fr));
+      justify-items: center;
+      position: relative;
+      width: 40px;
+    }
+    #chat-turn-navigator .track::before {
+      background: var(--t3-line);
+      content: "";
+      height: calc(100% - 18px);
+      left: 50%;
+      opacity: .75;
+      position: absolute;
+      top: 9px;
+      transform: translateX(-50%);
+      width: 2px;
+    }
+    #chat-turn-navigator .dot {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      color: var(--t3-muted);
+      cursor: pointer;
+      display: inline-flex;
+      height: 42px;
+      justify-content: center;
+      padding: 0;
+      position: relative;
+      width: 40px;
+      z-index: 1;
+    }
+    #chat-turn-navigator .dot::before {
+      background: var(--t3-line);
+      border: 2px solid var(--t3-bg);
+      border-radius: 50%;
+      content: "";
+      height: 9px;
+      transition: transform 120ms ease, background 120ms ease;
+      width: 9px;
+    }
+    #chat-turn-navigator .dot:hover::before { transform: scale(1.35); }
+    #chat-turn-navigator .dot[aria-current="true"]::before {
+      background: var(--t3-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--t3-accent) 22%, transparent);
+      height: 12px;
+      width: 12px;
+    }
+    #chat-turn-navigator .dot:focus-visible { outline: 2px solid var(--t3-accent); outline-offset: -3px; }
+    #chat-turn-navigator .position {
+      color: var(--t3-muted);
+      font-size: 10px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    #chat-turn-navigator .messages {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 408px;
+      overflow: auto;
+      padding: 16px;
+      scroll-behavior: smooth;
+      scrollbar-color: var(--t3-border) transparent;
+      scrollbar-width: thin;
+    }
+    #chat-turn-navigator .message {
+      background: var(--t3-panel);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 11px 12px;
+      scroll-margin: 16px;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+    #chat-turn-navigator .message[data-active="true"] {
+      background: var(--t3-row);
+      border-color: color-mix(in srgb, var(--t3-accent) 48%, var(--t3-border));
+    }
+    #chat-turn-navigator .message-head {
+      align-items: center;
+      color: var(--t3-muted);
+      display: flex;
+      font-size: 11px;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    #chat-turn-navigator .speaker { color: var(--t3-text); font-weight: 500; }
+    #chat-turn-navigator .message p { font-size: 12px; line-height: 1.5; margin: 0; }
+    #chat-turn-navigator .user-message { margin-left: 24px; }
+    @media (max-width: 480px) {
+      #chat-turn-navigator { padding: 8px; }
+      #chat-turn-navigator .layout { grid-template-columns: 56px minmax(0, 1fr); }
+      #chat-turn-navigator .messages { padding: 10px; }
+      #chat-turn-navigator .user-message { margin-left: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #chat-turn-navigator *, #chat-turn-navigator *::before { scroll-behavior: auto; transition: none; }
+    }
+  </style>
+  <section class="window" aria-label="T3 Code conversation">
+    <header class="topbar">
+      <span class="brand" aria-hidden="true">T3</span>
+      <span class="thread-name">General Conversation Thread</span>
+    </header>
+    <div class="layout">
+      <nav class="navigator" aria-label="Jump to conversation turn">
+        <span class="nav-label">Turns</span>
+        <div class="track" role="group" aria-label="Conversation turns">
+          <button class="dot" type="button" aria-label="Jump to turn 1: Request" aria-current="true" data-turn="turn-1"></button>
+          <button class="dot" type="button" aria-label="Jump to turn 2: Plan" aria-current="false" data-turn="turn-2"></button>
+          <button class="dot" type="button" aria-label="Jump to turn 3: Tool result" aria-current="false" data-turn="turn-3"></button>
+          <button class="dot" type="button" aria-label="Jump to turn 4: Follow-up" aria-current="false" data-turn="turn-4"></button>
+          <button class="dot" type="button" aria-label="Jump to turn 5: Answer" aria-current="false" data-turn="turn-5"></button>
+        </div>
+        <span class="position" aria-live="polite">Turn 1 of 5</span>
+      </nav>
+      <main class="messages" aria-label="Conversation messages">
+        <article class="message" id="turn-1" data-active="true">
+          <div class="message-head"><span class="speaker">You</span><span>Request</span></div>
+          <p>Can you find a clean way to jump back to earlier parts of a long conversation?</p>
+        </article>
+        <article class="message" id="turn-2" data-active="false">
+          <div class="message-head"><span class="speaker">Codex</span><span>Plan</span></div>
+          <p>I’ll map each conversation turn to a dot on the side rail.</p>
+        </article>
+        <article class="message user-message" id="turn-3" data-active="false">
+          <div class="message-head"><span class="speaker">You</span><span>Follow-up</span></div>
+          <p>Make the line long and let me click a dot to move there.</p>
+        </article>
+        <article class="message" id="turn-4" data-active="false">
+          <div class="message-head"><span class="speaker">Codex</span><span>Tool result</span></div>
+          <p>The selected dot tracks the visible turn, and clicking another dot scrolls that turn into view.</p>
+        </article>
+        <article class="message" id="turn-5" data-active="false">
+          <div class="message-head"><span class="speaker">Codex</span><span>Answer</span></div>
+          <p>This keeps the conversation readable while making long-distance navigation one click.</p>
+        </article>
+      </main>
+    </div>
+  </section>
+  <script>
+    const root = document.getElementById("chat-turn-navigator");
+    const messages = [...root.querySelectorAll(".message")];
+    const dots = [...root.querySelectorAll(".dot")];
+    const position = root.querySelector(".position");
+
+    function selectTurn(dot) {
+      const target = root.querySelector(`#${dot.dataset.turn}`);
+      const index = dots.indexOf(dot);
+      dots.forEach((item, itemIndex) => item.setAttribute("aria-current", String(itemIndex === index)));
+      messages.forEach((item) => item.dataset.active = String(item === target));
+      position.textContent = `Turn ${index + 1} of ${dots.length}`;
+      target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    dots.forEach((dot) => dot.addEventListener("click", () => selectTurn(dot)));
+  </script>
+</div>

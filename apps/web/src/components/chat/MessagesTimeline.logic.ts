@@ -313,12 +313,11 @@ export function workEntryIsVisibleInGroup(
     !workEntryIndicatesToolNeutralStatus(entry)
   );
 }
-const TIMELINE_MINIMAP_ITEM_SPACING = 8;
 export const TIMELINE_MINIMAP_MIN_ITEMS = 2;
 export const TIMELINE_MINIMAP_TARGET_OFFSET = 24;
-// Relative to the timeline, not the viewport, so an open terminal shrinks the rail and
-// endpoint previews (centered on their strip) still fit above and below it.
-const TIMELINE_MINIMAP_MAX_HEIGHT_CSS = "max(4rem, calc(100% - 14.75rem))";
+const TIMELINE_MINIMAP_MIN_HEIGHT_PX = 112;
+const TIMELINE_MINIMAP_MAX_HEIGHT_PX = 320;
+const TIMELINE_MINIMAP_DOT_SPACING_PX = 20;
 const TIMELINE_MINIMAP_PERSISTENT_GUTTER = 48;
 
 export interface WorkGroupScrollAnchor {
@@ -372,8 +371,11 @@ export function resolveTimelineIsAtEnd(state: TimelineEndState | undefined): boo
 }
 
 export function resolveTimelineMinimapHeightStyle(itemCount: number): string {
-  const naturalHeight = Math.max(1, (itemCount - 1) * TIMELINE_MINIMAP_ITEM_SPACING);
-  return `min(${naturalHeight}px, ${TIMELINE_MINIMAP_MAX_HEIGHT_CSS})`;
+  const itemHeight = Math.max(0, itemCount) * TIMELINE_MINIMAP_DOT_SPACING_PX;
+  return `${Math.min(
+    TIMELINE_MINIMAP_MAX_HEIGHT_PX,
+    Math.max(TIMELINE_MINIMAP_MIN_HEIGHT_PX, itemHeight),
+  )}px`;
 }
 
 export function resolveTimelineMinimapTopPercent(index: number, itemCount: number): number {
@@ -469,7 +471,7 @@ export function resolveTimelineMinimapHasPersistentGutter(sideGutter: number): b
   return sideGutter >= TIMELINE_MINIMAP_PERSISTENT_GUTTER;
 }
 
-const TIMELINE_MINIMAP_HIT_STRIP_LEFT = 32;
+const TIMELINE_MINIMAP_HIT_STRIP_LEFT = 20;
 const TIMELINE_MINIMAP_HIT_STRIP_MAX_WIDTH = 40;
 const TIMELINE_MINIMAP_NAVIGATION_REACH = 14;
 
