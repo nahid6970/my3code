@@ -343,9 +343,14 @@ function ComposerReasoningControlInner(props: { traits: TraitsSelectionInput; si
   const control = columnControls(traits.selectDescriptors, traits.booleanDescriptors).effort;
   if (!control || traits.modelIsUnavailable) return null;
   const descriptor = control.descriptor;
-  const selected = control.kind === "select"
-    ? selectableProviderOptionChoices(descriptor).find((choice) => choice.id === traits.selectValue(descriptor))?.label
-    : descriptor.currentValue ? gt("On", { $context: "option state" }) : gt("Off", { $context: "option state" });
+  const selected =
+    control.kind === "select"
+      ? selectableProviderOptionChoices(control.descriptor).find(
+          (choice) => choice.id === traits.selectValue(control.descriptor),
+        )?.label
+      : control.descriptor.currentValue
+        ? gt("On", { $context: "option state" })
+        : gt("Off", { $context: "option state" });
   return (
     <Menu open={open} onOpenChange={setOpen} onOpenChangeComplete={(isOpen) => {
       if (!isOpen) return;

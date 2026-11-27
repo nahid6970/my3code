@@ -1,7 +1,7 @@
 import type { ModelSelection, ProviderInstanceId, RuntimeMode } from "@t3tools/contracts";
 import { createModelSelection } from "@t3tools/shared/model";
 import { T, useGT, useMessages } from "gt-react";
-import { type ComponentProps, memo, use, useId, useRef, useState } from "react";
+import { type ComponentProps, memo, use, useId, useRef } from "react";
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
@@ -114,41 +114,18 @@ export function ComposerPermissionsSection(props: {
   onRuntimeModeChange: (mode: RuntimeMode) => void;
 }) {
   const gt = useGT();
-  const messages = useMessages();
-  // Hover or keyboard focus previews a mode's name and description before a pick.
-  const [previewMode, setPreviewMode] = useState<RuntimeMode | null>(null);
-  const shownMode = previewMode ?? props.runtimeMode;
-  const shown =
-    props.runtimeModeOptions.find((option) => option.mode === shownMode) ??
-    resolveRuntimeModeOption("approval-required", messages);
   const descriptionId = useId();
   // Mounted only while a picker is open, so this asks the server again each time one opens.
   useProviderRuntimeModeLimits(use(RuntimeModeLimitsTargetContext), "picker");
   return (
-    <div data-composer-permissions className="grid w-72 gap-1.5 px-2 py-1.5">
-      <div className="font-medium text-muted-foreground text-xs">
-        <T>Permissions</T>
-      </div>
+    <div data-composer-permissions className="grid w-80 gap-1 p-1">
       <MenuPrimitive.RadioGroup
         aria-label={gt("Permissions")}
         value={props.runtimeMode}
         onValueChange={(value: RuntimeMode) => {
           if (value !== props.runtimeMode) props.onRuntimeModeChange(value);
         }}
-        className="flex rounded-lg bg-input/40 p-0.5"
-        // Menus navigate with Up/Down only; the row reads horizontally, so Left/Right move too.
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-          const items = Array.from(
-            event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
-          );
-          const index = items.findIndex((item) => item === document.activeElement);
-          const next = items[index + (event.key === "ArrowRight" ? 1 : -1)];
-          if (index < 0 || !next) return;
-          event.preventDefault();
-          event.stopPropagation();
-          next.focus();
-        }}
+        className="flex flex-col gap-0.5"
       >
         {props.runtimeModeOptions.map((option) => {
           const OptionIcon = option.icon;
@@ -161,38 +138,22 @@ export function ComposerPermissionsSection(props: {
               aria-label={option.label}
               aria-describedby={`${descriptionId}-${option.mode}`}
               closeOnClick
-              onPointerEnter={() => setPreviewMode(option.mode)}
-              onPointerLeave={() => setPreviewMode(null)}
-              onFocus={() => setPreviewMode(option.mode)}
-              onBlur={() => setPreviewMode(null)}
-              className="flex h-6 flex-1 cursor-pointer items-center justify-center text-muted-foreground outline-none first:rounded-l-md last:rounded-r-md data-disabled:cursor-not-allowed data-disabled:opacity-40 data-checked:bg-input/72 data-checked:text-foreground data-highlighted:text-foreground not-data-checked:data-highlighted:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-muted-foreground outline-none data-disabled:cursor-not-allowed data-disabled:opacity-40 data-checked:bg-input/72 data-checked:text-foreground data-highlighted:text-foreground not-data-checked:data-highlighted:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
-              <OptionIcon aria-hidden="true" className="size-3.5" />
+              <OptionIcon aria-hidden="true" className="size-4 shrink-0" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm leading-4">{option.label}</span>
+                <span
+                  id={`${descriptionId}-${option.mode}`}
+                  className="line-clamp-2 text-muted-foreground text-xs leading-4"
+                >
+                  {option.disabledReason ?? option.description}
+                </span>
+              </span>
             </MenuPrimitive.RadioItem>
           );
         })}
       </MenuPrimitive.RadioGroup>
-      {/* Static per-mode descriptions for screen readers; the preview below is visual only. */}
-      {props.runtimeModeOptions.map((option) => (
-        <span key={option.mode} id={`${descriptionId}-${option.mode}`} className="sr-only">
-          {option.disabledReason ?? option.description}
-        </span>
-      ))}
-      <div className="grid gap-0.5" aria-hidden="true">
-        <span
-          className={
-            shownMode === props.runtimeMode
-              ? "text-foreground text-sm"
-              : "text-muted-foreground text-sm"
-          }
-        >
-          {shown.label}
-        </span>
-        {/* Two lines reserved so the menu does not shift while you preview modes. */}
-        <span className="min-h-8 text-muted-foreground text-xs leading-4">
-          {shown.disabledReason ?? shown.description}
-        </span>
-      </div>
     </div>
   );
 }
