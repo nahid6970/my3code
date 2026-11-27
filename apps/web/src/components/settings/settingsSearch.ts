@@ -481,6 +481,18 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("sort projects sidebar manual created recent")],
   },
   {
+    id: "chat-history-search",
+    title: msg("Search chat history"),
+    to: "/settings/general",
+    searchTerms: [msg("sidebar thread search messages content project title")],
+  },
+  {
+    id: "sidebar-search-project-threads",
+    title: msg("Include project threads in search"),
+    to: "/settings/general",
+    searchTerms: [msg("show all children threads when project name matches sidebar search")],
+  },
+  {
     id: "snooze-options",
     title: msg("Snooze options"),
     to: "/settings/threads",

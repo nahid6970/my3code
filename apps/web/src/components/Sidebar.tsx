@@ -44,7 +44,11 @@ import {
   threadSearchSubject,
   type ShownOrder,
 } from "@t3tools/client-runtime/state/thread-search";
-import { foldSearchQuery, rankMessageMatches } from "@t3tools/shared/paletteSearch";
+import {
+  foldSearchQuery,
+  rankMessageMatches,
+  scoreThreadSearch,
+} from "@t3tools/shared/paletteSearch";
 import { findForMessageMatch, openThreadFindOnQuery } from "./chat/threadFindStore";
 import {
   threadRuntimeCanArchive,
@@ -947,6 +951,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
+  const searchChatHistoryEnabled = useClientSettings((s) => s.sidebarSearchChatHistoryEnabled);
+  const searchIncludeProjectThreads = useClientSettings(
+    (s) => s.sidebarSearchIncludeProjectThreads,
+  );
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
     settleThread,
@@ -1209,9 +1217,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const threadSearch = useThreadSearch(
     connectedEnvironmentIds,
     threadSearchQuery,
-    scopedProjectGroups.length === 0
-      ? {}
-      : { projectIds: scopedProjectRefs.map((projectRef) => projectRef.projectId) },
+    {
+      ...(scopedProjectGroups.length === 0
+        ? {}
+        : { projectIds: scopedProjectRefs.map((projectRef) => projectRef.projectId) }),
+      ...(searchChatHistoryEnabled ? {} : { titlesOnly: true }),
+    },
   );
   const routeDraftIdForRows = routeTarget?.kind === "draft" ? routeTarget.draftId : null;
   const draftTerminalLabels = useDraftTerminalLabels();
@@ -1332,6 +1343,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     },
   );
 
+  const sidebarFolderGroups = boringSidebarEnabled
+    ? scopedProjectGroups.length === 0
+      ? // An archived project keeps a folder for its active threads, below the rest.
+        [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
+      : scopedProjectGroups
+    : null;
   const {
     workingShelfEnabled,
     pinnedThreads,
@@ -1378,12 +1395,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     delegatedUnderParent,
     routeRowThreadKey,
     departingThreadKey,
-    folderGroups: boringSidebarEnabled
-      ? scopedProjectGroups.length === 0
-        ? // An archived project keeps a folder for its active threads, below the rest.
-          [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
-        : scopedProjectGroups
-      : null,
+    folderGroups: sidebarFolderGroups,
     keepEmptyFolders: (group) =>
       scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
   });
@@ -1427,8 +1439,62 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
   if (messageOrder !== shownMessageOrder) setShownMessageOrder(messageOrder);
   const { titleMatches: threadTitleResults, contentMatches: threadContentResults } =
-    searchSidebarThreads(searchableThreads, threadSearchQuery, new Set(messageOrder.keys));
-  const threadSearchResults = [...threadTitleResults, ...threadContentResults];
+    searchSidebarThreads(
+      searchableThreads,
+      threadSearchQuery,
+      new Set(messageOrder.keys),
+      undefined,
+      !searchChatHistoryEnabled,
+    );
+  const projectNameSearchGroups =
+    searchIncludeProjectThreads && isSearchingThreads && sidebarFolderGroups !== null
+      ? sidebarFolderGroups
+          .filter(
+            (group) =>
+              scoreThreadSearch(
+                foldSearchQuery(threadSearchQuery),
+                { title: "", projectTitle: group.displayName, activityAt: null },
+                0,
+                { picks: false },
+              ) !== null,
+          )
+          .map((group) => {
+            const projectRefs = new Set(
+              group.memberProjectRefs.map(
+                (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
+              ),
+            );
+            return {
+              group,
+              threads: searchableThreads.filter((thread) =>
+                projectRefs.has(`${thread.environmentId}:${thread.projectId}`),
+              ),
+            };
+          })
+          .filter(({ threads }) => threads.length > 0)
+      : [];
+  const projectSearchThreadKeys = new Set(
+    projectNameSearchGroups.flatMap(({ threads }) =>
+      threads.map((thread) => threadShellKey(thread)),
+    ),
+  );
+  const standaloneThreadSearchResults = [...threadTitleResults, ...threadContentResults].filter(
+    (thread) => !projectSearchThreadKeys.has(threadShellKey(thread)),
+  );
+  const threadSearchResults = [
+    ...projectNameSearchGroups.flatMap(({ threads }) => threads),
+    ...standaloneThreadSearchResults,
+  ];
+  const threadSearchResultIndexByKey = new Map(
+    threadSearchResults.map((thread, index) => [threadShellKey(thread), index] as const),
+  );
+  const searchResultDisplayItems = [
+    ...projectNameSearchGroups.flatMap(({ group, threads }) => [
+      { kind: "project" as const, group },
+      ...threads.map((thread) => ({ kind: "thread" as const, thread })),
+    ]),
+    ...standaloneThreadSearchResults.map((thread) => ({ kind: "thread" as const, thread })),
+  ];
   // Only rows listed for their messages show one, and open find on it.
   const threadSearchMatchByKey = new Map(
     threadContentResults.flatMap((thread) => {
@@ -3360,10 +3426,28 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   aria-label={gt("Thread search results")}
                   className="flex flex-col gap-px"
                 >
-                  {threadSearchResults.map((thread, index) => {
+                  {searchResultDisplayItems.map((item) => {
+                    if (item.kind === "project") {
+                      return (
+                        <li
+                          key={`project-search:${item.group.projectKey}`}
+                          role="presentation"
+                          className="mt-2 list-none first:mt-0"
+                        >
+                          <div className="flex h-8 items-center gap-2.5 rounded-(--control-radius) px-(--sidebar-row-content-inset)">
+                            <ProjectFavicon project={item.group} className="size-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground/90">
+                              {item.group.displayName}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    }
+                    const thread = item.thread;
                     const threadKey = scopedThreadKey(
                       scopeThreadRef(thread.environmentId, thread.id),
                     );
+                    const index = threadSearchResultIndexByKey.get(threadShellKey(thread)) ?? 0;
                     return (
                       <SidebarSearchResultRow
                         isSettled={settledThreadKeys.has(threadKey)}
@@ -3387,6 +3471,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         }
                         isHighlighted={activeSearchResultIndex === index}
                         isRouteActive={routeRowThreadKey === threadKey}
+                        isProjectSearchChild={projectSearchThreadKeys.has(threadShellKey(thread))}
                         resultId={threadSearchResultId(index)}
                         searchMatch={
                           threadSearchMatchByKey.get(

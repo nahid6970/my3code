@@ -955,6 +955,36 @@ export function GeneralSettingsPanel() {
           }
         />
         <SettingsRow
+          {...setting("chat-history-search")}
+          description={<T>Include messages when searching threads in the sidebar.</T>}
+          control={
+            <Switch
+              checked={settings.sidebarSearchChatHistoryEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ sidebarSearchChatHistoryEnabled: checked })
+              }
+              aria-label={gt("Search chat history")}
+            />
+          }
+        />
+        {settings.boringSidebarEnabled ? (
+          <SettingsRow
+            {...setting("sidebar-search-project-threads")}
+            description={
+              <T>When a search matches a project name, show that project and all its threads.</T>
+            }
+            control={
+              <Switch
+                checked={settings.sidebarSearchIncludeProjectThreads}
+                onCheckedChange={(checked) =>
+                  updateSettings({ sidebarSearchIncludeProjectThreads: checked })
+                }
+                aria-label={gt("Include project threads in search")}
+              />
+            }
+          />
+        ) : null}
+        <SettingsRow
           {...setting("working-shelf")}
           description={
             <T>

@@ -1149,15 +1149,26 @@ export function searchSidebarThreads<
   query: string,
   contentMatchKeys: ReadonlySet<string> = EMPTY_CONTENT_MATCH_KEYS,
   now = Date.now(),
+  namesOnly = false,
 ): { readonly titleMatches: T[]; readonly contentMatches: T[] } {
   const normalizedQuery = foldSearchQuery(query);
   if (normalizedQuery.length === 0) return { titleMatches: [], contentMatches: [] };
-  const titleMatches = rankSearchItems(threads, (thread, options) =>
-    scoreThreadSearch(normalizedQuery, threadSearchSubject(thread, null), now, {
-      ...options,
-      picks: false,
-    }),
-  ).map(({ item }) => item);
+  const titleMatches = rankSearchItems(threads, (thread, options) => {
+    const subject = threadSearchSubject(thread, null);
+    return scoreThreadSearch(
+      normalizedQuery,
+      namesOnly
+        ? {
+            title: subject.title,
+            projectTitle: subject.projectTitle,
+            activityAt: subject.activityAt,
+            opens: subject.opens,
+          }
+        : subject,
+      now,
+      { ...options, picks: false },
+    );
+  }).map(({ item }) => item);
   const listed = new Set(titleMatches);
   // In the order the server ranked their messages, as the palette lists them.
   const threadByKey = new Map(
