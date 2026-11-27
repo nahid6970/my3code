@@ -95,7 +95,11 @@ function isContextMenuElementDetails(value: unknown): value is ContextMenuElemen
   );
 }
 
-function buildContextMenuElementScript(x: number, y: number): string {
+function buildContextMenuElementScript(
+  x: number,
+  y: number,
+  inspect = false,
+): string {
   return `(() => {
     const x = ${JSON.stringify(x)};
     const y = ${JSON.stringify(y)};
@@ -120,7 +124,7 @@ function buildContextMenuElementScript(x: number, y: number): string {
         for (const name of stableAttributes) {
           const value = current.getAttribute(name);
           if (!value) continue;
-          const candidate = tag + "[" + name + "=\\\"" + CSS.escape(value) + "\\\"]";
+          const candidate = tag + "[" + name + "=" + JSON.stringify(value) + "]";
           if (unique(candidate)) { part = candidate; break; }
         }
       }
@@ -141,7 +145,7 @@ function buildContextMenuElementScript(x: number, y: number): string {
       .filter(([, value]) => value !== null)
       .map(([name, value]) => name + "=" + JSON.stringify(value));
     const text = (target.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 180);
-    return {
+    const details = {
       selector,
       tag: target.localName.toLowerCase(),
       classes,
@@ -149,6 +153,88 @@ function buildContextMenuElementScript(x: number, y: number): string {
       text,
       openTag: target.cloneNode(false).outerHTML
     };
+    if (!${JSON.stringify(inspect)}) return details;
+
+    window.__t3CodeElementInspector?.close?.();
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;pointer-events:none;z-index:2147483646;background:rgba(59,130,246,.22);border:2px solid #3b82f6;box-sizing:border-box";
+    document.body.appendChild(overlay);
+    const updateOverlay = () => {
+      const rect = target.getBoundingClientRect();
+      Object.assign(overlay.style, { display: "block", top: rect.top + "px", left: rect.left + "px", width: rect.width + "px", height: rect.height + "px" });
+    };
+    updateOverlay();
+
+    const panel = document.createElement("section");
+    panel.id = "__t3code_element_inspector";
+    panel.style.cssText = "position:fixed;top:20px;right:20px;width:380px;max-width:calc(100vw - 32px);max-height:80vh;overflow:auto;background:#1e1e2e;color:#cdd6f4;font:12px/1.45 'JetBrains Mono',Consolas,monospace;border:1px solid #3b82f6;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:2147483647;user-select:text";
+    const header = document.createElement("header");
+    header.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#181825;border-bottom:1px solid #313244;font-weight:700;font-size:13px";
+    const title = document.createElement("span");
+    title.textContent = "🔍 T3 UI Inspector";
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "×";
+    closeButton.title = "Close inspector";
+    closeButton.style.cssText = "background:none;border:0;color:#f38ba8;cursor:pointer;font-size:18px;padding:0 4px";
+    header.append(title, closeButton);
+    const tagLine = document.createElement("div");
+    tagLine.textContent = "<" + details.tag + ">";
+    tagLine.style.cssText = "padding:6px 12px;color:#89b4fa;font-size:13px;border-bottom:1px solid #313244;background:#181825";
+    const rows = document.createElement("div");
+    rows.style.padding = "6px 0";
+    const computed = getComputedStyle(target);
+    const computedStyles = ["display","position","width","height","margin","padding","background","color","font-size","font-family","border","flex","z-index","opacity","overflow"].map((name) => name + ": " + computed.getPropertyValue(name)).join(";\\n") + ";";
+    const rowValues = [
+      ["CSS Selector", details.selector],
+      ["Tag", details.tag],
+      ["Classes", details.classes || "(none)"],
+      ["ID", target.id || "(none)"],
+      ["Attributes", details.attributes.join("\\n") || "(none)"],
+      ["Computed Style", computedStyles],
+      ["HTML (open tag)", details.openTag],
+      ["Text Content", details.text || "(none)"],
+    ];
+    for (const [label, value] of rowValues) {
+      const row = document.createElement("div");
+      row.style.cssText = "padding:6px 12px;border-bottom:1px solid #313244;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:2px 8px";
+      const labelNode = document.createElement("div");
+      labelNode.textContent = label;
+      labelNode.style.cssText = "grid-column:1;grid-row:1;color:#a6e3a1;font-size:10px;text-transform:uppercase;letter-spacing:.05em;opacity:.8";
+      const valueNode = document.createElement("pre");
+      valueNode.textContent = value;
+      valueNode.style.cssText = "grid-column:1;grid-row:2;margin:0;white-space:pre-wrap;word-break:break-word;color:#cdd6f4;font:11px/1.4 'JetBrains Mono',Consolas,monospace;max-height:80px;overflow:auto";
+      const copyButton = document.createElement("button");
+      copyButton.type = "button";
+      copyButton.textContent = "Copy";
+      copyButton.style.cssText = "grid-column:2;grid-row:1/3;align-self:center;background:#313244;border:1px solid #45475a;color:#cdd6f4;border-radius:4px;padding:3px 8px;cursor:pointer;font:11px 'JetBrains Mono',Consolas,monospace";
+      copyButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          copyButton.textContent = "✓";
+          setTimeout(() => { copyButton.textContent = "Copy"; }, 1200);
+        } catch {}
+      });
+      row.append(labelNode, valueNode, copyButton);
+      rows.appendChild(row);
+    }
+    panel.append(header, tagLine, rows);
+    document.body.appendChild(panel);
+    const close = () => {
+      overlay.remove();
+      panel.remove();
+      document.removeEventListener("scroll", updateOverlay, true);
+      window.removeEventListener("resize", updateOverlay);
+      document.removeEventListener("keydown", onKeyDown, true);
+      if (window.__t3CodeElementInspector?.close === close) delete window.__t3CodeElementInspector;
+    };
+    const onKeyDown = (event) => { if (event.key === "Escape") close(); };
+    closeButton.addEventListener("click", close);
+    document.addEventListener("scroll", updateOverlay, true);
+    window.addEventListener("resize", updateOverlay);
+    document.addEventListener("keydown", onKeyDown, true);
+    window.__t3CodeElementInspector = { close };
+    return details;
   })()`;
 }
 
@@ -185,6 +271,22 @@ function copyContextMenuElement(
       );
     }),
     Effect.catch(() => logWindowWarning("failed to copy context-menu element details")),
+  );
+}
+
+function inspectContextMenuElement(
+  frame: Electron.WebFrameMain,
+  x: number,
+  y: number,
+): Effect.Effect<void> {
+  return Effect.tryPromise({
+    try: async () => {
+      if (frame.isDestroyed()) return null;
+      return await frame.executeJavaScript(buildContextMenuElementScript(x, y, true));
+    },
+    catch: (cause) => new ContextMenuElementCopyError({ cause }),
+  }).pipe(
+    Effect.catch(() => logWindowWarning("failed to inspect context-menu element")),
   );
 }
 // Match --workspace-topbar-height in apps/web/src/index.css; native macOS buttons stay 14 points at any zoom.
@@ -904,6 +1006,13 @@ export const make = Effect.gen(function* () {
         ) {
           menuTemplate.push(
             { type: "separator" },
+            {
+              label: m(msg("Inspect UI element")),
+              click: () =>
+                void runPromise(
+                  inspectContextMenuElement(inspectorFrame, params.x, params.y),
+                ),
+            },
             {
               label: m(msg("Copy UI element details")),
               click: () =>
