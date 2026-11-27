@@ -4,6 +4,7 @@
 import * as NodeFSP from "node:fs/promises";
 import * as NodeCrypto from "node:crypto";
 import * as NodeModule from "node:module";
+import * as NodeOS from "node:os";
 // plist is CommonJS; Node cannot load its named exports from an ES module.
 import Plist from "plist";
 
@@ -3663,6 +3664,28 @@ export const validateLinuxPackagedPayload = Effect.fn(
   );
 });
 
+/** Check the OS temp location before an expensive desktop build reaches the isolated bundle probe. */
+const preflightBundleProbeTempDirectory = Effect.fn("preflightBundleProbeTempDirectory")(
+  function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const tempDirectory = NodeOS.tmpdir();
+    const probeApp = path.join(tempDirectory, "t3code-bundle-selfcheck-preflight", "app");
+    for (const candidate of ancestorNodeModulesPaths(probeApp, path.sep)) {
+      if (yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
+        return yield* new BundleNotSelfContainedError({
+          exitCode: -1,
+          output: [
+            `[desktop-artifact] Build preflight stopped before packaging: the temp directory (${tempDirectory}) is beneath ${candidate}.`,
+            "The isolated server check would be able to see that node_modules folder and reject the package after the long build.",
+            'On Windows PowerShell, set $env:TEMP and $env:TMP to a temp directory outside that node_modules tree (for example, "$env:SystemRoot\\Temp") and rerun the build.',
+          ].join("\n"),
+        });
+      }
+    }
+  },
+);
+
 const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(function* (
   options: ResolvedBuildOptions,
 ) {
@@ -3670,6 +3693,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const hostPlatform = yield* HostProcess.Platform;
+  yield* preflightBundleProbeTempDirectory();
   if (hostPlatform === "linux" && options.platform === "linux") {
     yield* preflightLinuxDesktopBuild(options.arch);
   }
