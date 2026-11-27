@@ -54,8 +54,6 @@ export function ComposerControlsBar(props: {
   promptUltrathink: PromptUltrathink;
   onPromptEdit: (edit: (prompt: string) => string) => void;
   effortDisplay: EffortDisplay;
-  /** The strip under a new thread names the permissions, so the row does not repeat them. */
-  permissionsShownInStrip: boolean;
   compatibleRuntimeMode: RuntimeMode;
   defaultRuntimeMode: RuntimeMode | undefined;
   compatibleRuntimeModeOptions: ReadonlyArray<RuntimeModeOption>;
@@ -139,9 +137,7 @@ export function ComposerControlsBar(props: {
     hiddenBlockIds: hiddenRestingBlockIds,
     overflowShowsPermissions,
     overflowShowsEffort,
-    pickerOwnsModeShortcut,
   } = resolveComposerControlsOwnership({
-    matchesDefault: accessMatchesDefault || props.permissionsShownInStrip,
     collapsed: composerControlsCollapsed,
     measuredHiddenBlockCount,
   });
@@ -220,14 +216,13 @@ export function ComposerControlsBar(props: {
         MODEL_TRIGGER_STATES,
         composerControlsCollapsed ? "min-w-13 shrink text-xs!" : "min-w-13",
       )}
-      triggerShortcuts={pickerOwnsModeShortcut ? "composer.mode" : undefined}
       footer={
         <ComposerPickerFooter
           traits={traitsInput}
           runtimeMode={compatibleRuntimeMode}
           runtimeModeOptions={compatibleRuntimeModeOptions}
           onRuntimeModeChange={handleRuntimeModeChange}
-          showPermissions={accessDisplay === "hidden" && !overflowShowsPermissions}
+          showPermissions={false}
         />
       }
       terminalOpen={terminalOpen}
