@@ -62,6 +62,131 @@ class ContextMenuImageCopyError extends Schema.TaggedError<ContextMenuImageCopyE
     return "Could not copy the context-menu image.";
   }
 }
+
+class ContextMenuElementCopyError extends Schema.TaggedError<ContextMenuElementCopyError>()(
+  "ContextMenuElementCopyError",
+  { cause: Schema.Defect() },
+) {
+  override get message(): string {
+    return "Could not inspect the context-menu element.";
+  }
+}
+
+type ContextMenuElementDetails = {
+  selector: string;
+  tag: string;
+  classes: string;
+  attributes: ReadonlyArray<string>;
+  text: string;
+  openTag: string;
+};
+
+function isContextMenuElementDetails(value: unknown): value is ContextMenuElementDetails {
+  if (typeof value !== "object" || value === null) return false;
+  const details = value as Partial<ContextMenuElementDetails>;
+  return (
+    typeof details.selector === "string" &&
+    typeof details.tag === "string" &&
+    typeof details.classes === "string" &&
+    Array.isArray(details.attributes) &&
+    details.attributes.every((attribute) => typeof attribute === "string") &&
+    typeof details.text === "string" &&
+    typeof details.openTag === "string"
+  );
+}
+
+function buildContextMenuElementScript(x: number, y: number): string {
+  return `(() => {
+    const x = ${JSON.stringify(x)};
+    const y = ${JSON.stringify(y)};
+    const element = document.elementFromPoint(x, y);
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) return null;
+    const target = element;
+    const stableAttributes = ["data-testid", "data-test", "data-cy", "aria-label", "role", "name"];
+    const unique = (selector) => {
+      try { return document.querySelectorAll(selector).length === 1; }
+      catch { return false; }
+    };
+    const selectorParts = [];
+    let current = target;
+    while (current && current.nodeType === Node.ELEMENT_NODE) {
+      const tag = current.localName.toLowerCase();
+      let part = tag;
+      if (current.id) {
+        const idSelector = "#" + CSS.escape(current.id);
+        if (unique(idSelector)) part = idSelector;
+      }
+      if (part === tag) {
+        for (const name of stableAttributes) {
+          const value = current.getAttribute(name);
+          if (!value) continue;
+          const candidate = tag + "[" + name + "=\\\"" + CSS.escape(value) + "\\\"]";
+          if (unique(candidate)) { part = candidate; break; }
+        }
+      }
+      if (part === tag && current.parentElement) {
+        const siblings = Array.from(current.parentElement.children).filter((sibling) => sibling.localName === current.localName);
+        if (siblings.length > 1) part += ":nth-of-type(" + (siblings.indexOf(current) + 1) + ")";
+      }
+      selectorParts.unshift(part);
+      const selector = selectorParts.join(" > ");
+      if (unique(selector)) break;
+      if (current === document.body) break;
+      current = current.parentElement;
+    }
+    const selector = selectorParts.join(" > ");
+    const classes = target.getAttribute("class") || "";
+    const attributes = ["id", "data-testid", "data-test", "data-cy", "role", "aria-label", "aria-labelledby", "type", "name", "title"]
+      .map((name) => [name, target.getAttribute(name)])
+      .filter(([, value]) => value !== null)
+      .map(([name, value]) => name + "=" + JSON.stringify(value));
+    const text = (target.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 180);
+    return {
+      selector,
+      tag: target.localName.toLowerCase(),
+      classes,
+      attributes,
+      text,
+      openTag: target.cloneNode(false).outerHTML
+    };
+  })()`;
+}
+
+function formatContextMenuElementDetails(details: ContextMenuElementDetails): string {
+  return [
+    "T3 Code UI element",
+    `CSS selector: ${details.selector}`,
+    `Tag: <${details.tag}>`,
+    `Classes: ${details.classes || "(none)"}`,
+    ...(details.attributes.length > 0 ? [`Attributes: ${details.attributes.join(" ")}`] : []),
+    ...(details.text ? [`Text: ${details.text}`] : []),
+    `HTML: ${details.openTag}`,
+  ].join("\n");
+}
+
+function copyContextMenuElement(
+  frame: Electron.WebFrameMain,
+  x: number,
+  y: number,
+  mode: "details" | "selector",
+  copyText: (text: string) => Effect.Effect<void>,
+): Effect.Effect<void> {
+  return Effect.tryPromise({
+    try: async () => {
+      if (frame.isDestroyed()) return null;
+      return await frame.executeJavaScript(buildContextMenuElementScript(x, y));
+    },
+    catch: (cause) => new ContextMenuElementCopyError({ cause }),
+  }).pipe(
+    Effect.flatMap((value) => {
+      if (!isContextMenuElementDetails(value)) return Effect.void;
+      return copyText(
+        mode === "selector" ? value.selector : formatContextMenuElementDetails(value),
+      );
+    }),
+    Effect.catch(() => logWindowWarning("failed to copy context-menu element details")),
+  );
+}
 // Match --workspace-topbar-height in apps/web/src/index.css; native macOS buttons stay 14 points at any zoom.
 const MACOS_WORKSPACE_TOPBAR_HEIGHT = 52;
 const MACOS_WINDOW_BUTTON_RADIUS = 7;
@@ -767,6 +892,46 @@ export const make = Effect.gen(function* () {
             enabled: params.editFlags.canSelectAll,
           },
         );
+
+        const inspectorFrame = params.frame;
+        if (
+          !isBrowserContents &&
+          inspectorFrame !== null &&
+          isSameOriginRendererNavigation({
+            applicationUrl,
+            navigationUrl: inspectorFrame.url,
+          })
+        ) {
+          menuTemplate.push(
+            { type: "separator" },
+            {
+              label: m(msg("Copy UI element details")),
+              click: () =>
+                void runPromise(
+                  copyContextMenuElement(
+                    inspectorFrame,
+                    params.x,
+                    params.y,
+                    "details",
+                    electronShell.copyText,
+                  ),
+                ),
+            },
+            {
+              label: m(msg("Copy CSS selector")),
+              click: () =>
+                void runPromise(
+                  copyContextMenuElement(
+                    inspectorFrame,
+                    params.x,
+                    params.y,
+                    "selector",
+                    electronShell.copyText,
+                  ),
+                ),
+            },
+          );
+        }
 
         void runPromise(
           electronMenu.popupTemplate({
