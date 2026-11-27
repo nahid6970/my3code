@@ -413,6 +413,18 @@ export const VoiceTranscriptionDestination = Schema.Union([
 ]);
 export type VoiceTranscriptionDestination = typeof VoiceTranscriptionDestination.Type;
 
+export const SidebarThreadCardFields = Schema.Struct({
+  projectName: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  environmentName: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  activityTime: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  providerIcons: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  pullRequest: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  issues: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  diffStats: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  terminalStatus: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+});
+export type SidebarThreadCardFields = typeof SidebarThreadCardFields.Type;
+
 export const ClientSettingsSchema = Schema.Struct({
   notificationMode: NotificationMode.pipe(
     Schema.withDecodingDefault(Effect.succeed("off" as const)),
@@ -567,6 +579,9 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   sidebarSearchIncludeProjectThreads: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
+  ),
+  sidebarThreadCardFields: SidebarThreadCardFields.pipe(
+    Schema.withDecodingDefault(Effect.succeed(Schema.decodeSync(SidebarThreadCardFields)({}))),
   ),
   sidebarWorkingShelfEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   sidebarProjectGroupingMode: SidebarProjectGroupingMode.pipe(
@@ -2191,6 +2206,7 @@ export const ClientSettingsPatch = Schema.Struct({
   threadDetailsItems: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
   sidebarSearchChatHistoryEnabled: Schema.optionalKey(Schema.Boolean),
   sidebarSearchIncludeProjectThreads: Schema.optionalKey(Schema.Boolean),
+  sidebarThreadCardFields: Schema.optionalKey(SidebarThreadCardFields),
   sidebarWorkingShelfEnabled: Schema.optionalKey(Schema.Boolean),
   sidebarProjectGroupingMode: Schema.optionalKey(SidebarProjectGroupingMode),
   sidebarProjectGroupingOverrides: Schema.optionalKey(

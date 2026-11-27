@@ -1,6 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off - Tests use Node's glob matcher to verify electron-builder exclusions.
 import * as NodeCrypto from "node:crypto";
 import * as NodePath from "node:path";
+import * as NodeURL from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { createPackageWithOptions, extractFile } from "@electron/asar";
@@ -55,6 +56,7 @@ import {
   validateMacPackagedPayload,
   validateWindowsPackagedPayload,
   verifyPackagedBundleIsSelfContained,
+  preflightBundleProbeTempDirectory,
   WindowsPrimaryNativeProbeError,
   WindowsDesktopBuildPrerequisitesMissingError,
   WindowsPackagedPayloadValidationError,
@@ -78,6 +80,10 @@ import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
 const encodeModuleUrl = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 const decodePackageVersion = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Struct({ version: Schema.String })),
+);
+const WINDOWS_SYSTEM_ROOT = process.env.SystemRoot ?? process.env.WINDIR;
+const REPO_NODE_MODULES_PROBE_TEMP = NodeURL.fileURLToPath(
+  new URL("../node_modules/probe-temp", import.meta.url),
 );
 
 // Keeps pnpm from auto-installing TypeScript, a types-only peer, into the app.
@@ -245,6 +251,15 @@ const makePackagedAppFixture = Effect.fn("test.makePackagedAppFixture")(function
 });
 
 it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
+  it.effect("uses the Windows system temp when the configured temp is under node_modules", () =>
+    Effect.gen(function* () {
+      if ((yield* HostProcess.Platform) !== "win32") return;
+      assert.isDefined(WINDOWS_SYSTEM_ROOT);
+      const fallback = NodePath.join(WINDOWS_SYSTEM_ROOT, "Temp");
+      assert.equal(yield* preflightBundleProbeTempDirectory(REPO_NODE_MODULES_PROBE_TEMP), fallback);
+    }),
+  );
+
   it.effect("rejects overlapping builds from another process until restoration finishes", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

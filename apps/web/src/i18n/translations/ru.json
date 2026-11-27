@@ -13017,5 +13017,27 @@
       "v": "v"
     },
     " в разделе «Привязанные элементы»"
-  ]
+  ],
+  "5cc1931ba63bba2d": "Reasoning: {level}",
+  "5c0b66709e77d2cd": "Search chat history",
+  "e8d9a9d9847c86f2": "Include project threads in search",
+  "d0f1c434a351c572": "Choose which details appear on sidebar thread cards.",
+  "b662be65e9ef40fd": "Include messages when searching threads in the sidebar.",
+  "232e295ed9300532": "When a search matches a project name, show that project and all its threads.",
+  "49b072b7f094fd07": "Thread card details",
+  "e1959ac676a2cb0d": "sidebar cards customize hide machine name activity provider icons pull requests issues diff terminal",
+  "cdd6f417d86af8a4": "sidebar thread search messages content project title",
+  "6620ed02e2c69340": "show all children threads when project name matches sidebar search",
+  "5f08f0994dfe385a": "Machine name",
+  "75cf5c4f4cec859e": "Activity time",
+  "95927b252383c8a3": "Provider icons",
+  "00a29673d1b83c5a": "Pull request badges",
+  "62411e1a81cdb17a": "Issue badges",
+  "cd8e789bdbd75f18": "Git change counts",
+  "bb35fc0728220f76": "Terminal status",
+  "bf0f37f53a4e2d62": "Preview",
+  "2f035ab0520c7a86": "now",
+  "2b386b08b2885394": "Clone Project Size Check",
+  "d6fc357d809043b3": "Terminal running",
+  "f1cf5d514258b5b5": "Preview updates as you change which details appear on sidebar cards."
 }

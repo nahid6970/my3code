@@ -481,6 +481,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("sort projects sidebar manual created recent")],
   },
   {
+    id: "sidebar-thread-card-details",
+    title: msg("Thread card details"),
+    to: "/settings/general",
+    searchTerms: [
+      msg("sidebar cards customize hide machine name activity provider icons pull requests issues diff terminal"),
+    ],
+  },
+  {
     id: "chat-history-search",
     title: msg("Search chat history"),
     to: "/settings/general",

@@ -1160,9 +1160,9 @@ export function searchSidebarThreads<
       namesOnly
         ? {
             title: subject.title,
-            projectTitle: subject.projectTitle,
+            ...(subject.projectTitle === undefined ? {} : { projectTitle: subject.projectTitle }),
             activityAt: subject.activityAt,
-            opens: subject.opens,
+            ...(subject.opens === undefined ? {} : { opens: subject.opens }),
           }
         : subject,
       now,

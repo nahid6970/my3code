@@ -121,6 +121,7 @@ import { useSearchableSetting } from "./settingsSearch";
 import { nativeLanguageName, SYSTEM_LANGUAGE } from "@t3tools/client-runtime/locales";
 import { SUPPORTED_LOCALES } from "../../i18n/locales";
 import { BackgroundActivitySettingsRow } from "./BackgroundActivitySettings";
+import { SidebarThreadCardSettings } from "./SidebarThreadCardSettings";
 import { AdvancedSettings } from "./AdvancedSettings";
 import { PullRequestLinksOpenInAppSetting } from "./IntegrationsSettings";
 import { StorageCleanupSections } from "./StorageSettings";
@@ -849,6 +850,7 @@ export function GeneralSettingsPanel() {
   const setting = useSearchableSetting();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
+  const sidebarCardDetailsSetting = setting("sidebar-thread-card-details");
   const lastEnabledProjectGroupingMode = useRef<SidebarProjectGroupingMode>(
     readLastEnabledProjectGroupingMode(),
   );
@@ -954,6 +956,25 @@ export function GeneralSettingsPanel() {
             </Select>
           }
         />
+        <div id={sidebarCardDetailsSetting.id} className="space-y-2">
+          <div>
+            <h3 className="text-sm font-medium">{sidebarCardDetailsSetting.title}</h3>
+            <p className="text-xs text-muted-foreground">
+              <T>Choose which details appear on sidebar thread cards.</T>
+            </p>
+          </div>
+          <SidebarThreadCardSettings
+            fields={settings.sidebarThreadCardFields}
+            onChange={(field, checked) =>
+              updateSettings({
+                sidebarThreadCardFields: {
+                  ...settings.sidebarThreadCardFields,
+                  [field]: checked,
+                },
+              })
+            }
+          />
+        </div>
         <SettingsRow
           {...setting("chat-history-search")}
           description={<T>Include messages when searching threads in the sidebar.</T>}

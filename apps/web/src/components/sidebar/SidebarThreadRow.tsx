@@ -139,6 +139,7 @@ import { MiddleTruncate } from "../ui/middle-truncate";
 import { ActivityShimmerOverlay } from "../chat/TimelineRowParts";
 import { observeVisibleAnimation } from "~/lib/visibleAnimation";
 import { useThreadHasUnsentDraft } from "../../composerDraftStore";
+import { useClientSettings } from "../../hooks/useSettings";
 import { ThreadDetailsIssueRows } from "../chat/ThreadDetailsIssueRows";
 import { IssueGlyph, issueStatePresentation } from "../issue/issuePresentation";
 import { useThreadIntentPrefetch } from "./useThreadIntentPrefetch";
@@ -229,7 +230,7 @@ function terminalProcessLabel(count: number, resolve: MessageResolver): string {
   );
 }
 
-function SidebarProviderStack(props: {
+function SidebarLatestProviderIcon(props: {
   thread: SidebarThreadSummary;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
 }) {
@@ -253,28 +254,7 @@ function SidebarProviderStack(props: {
       iconClassName="opacity-60"
     />
   );
-  if (stack.length === 1) {
-    return <span className="inline-flex shrink-0 items-center">{current}</span>;
-  }
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5">
-      {stack.slice(0, -1).map((instanceId) => {
-        const entry = props.providerEntryByInstanceId.get(instanceId);
-        if (entry === undefined) return null;
-        return (
-          <ProviderInstanceIcon
-            key={instanceId}
-            driverKind={entry.driverKind}
-            displayName={entry.displayName}
-            acpRegistryAgentId={entry.acpRegistryAgentId}
-            acpRegistryIconUrl={entry.acpRegistryIconUrl}
-            iconClassName="size-3 opacity-35 grayscale"
-          />
-        );
-      })}
-      <span className="relative z-10 inline-flex items-center">{current}</span>
-    </span>
-  );
+  return <span className="inline-flex shrink-0 items-center">{current}</span>;
 }
 
 function SidebarThreadTooltip({
@@ -708,6 +688,7 @@ function ThreadRenameInput(props: {
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
   const gt = useGT();
   const messages = useMessages();
+  const cardFields = useClientSettings((settings) => settings.sidebarThreadCardFields);
   const {
     isRenaming,
     onCancelRename,
@@ -1284,16 +1265,27 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   ) : null;
 
   const diff = latestRunDiff(thread);
-  // Only the trailing icons would remain, so the row moves them to the title line instead.
+  const visibleDiff = cardFields.diffStats ? diff : null;
+  const hasVisibleDiff = visibleDiff !== null;
+  const showEnvironmentName = cardFields.environmentName && props.environmentLabel !== null;
+  const providerStack = resolveThreadProviderStack(thread);
+  const latestProviderInstanceId = providerStack[providerStack.length - 1];
+  const showLatestProviderIcon =
+    cardFields.providerIcons &&
+    latestProviderInstanceId !== undefined &&
+    props.providerEntryByInstanceId.has(latestProviderInstanceId);
+  const showPullRequestBadge = cardFields.pullRequest && prBadge !== null;
+  const showIssueBadge = cardFields.issues && issueBadge !== null;
+  const showTerminalStatus = cardFields.terminalStatus && runningTerminalIds.length > 0;
   const metaLineEmpty =
-    props.environmentLabel === null &&
-    prBadge === null &&
-    issueBadge === null &&
-    diff === null &&
-    runningTerminalIds.length === 0;
+    !showEnvironmentName &&
+    !showPullRequestBadge &&
+    !showIssueBadge &&
+    !hasVisibleDiff &&
+    !showTerminalStatus;
   const metaLine = metaLineEmpty ? null : (
     <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-      {props.environmentLabel !== null ? (
+      {showEnvironmentName ? (
         <>
           <EnvironmentMachineIcon
             aria-hidden
@@ -1305,34 +1297,21 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       ) : (
         <span className="flex-1" />
       )}
-      {terminalStatusIcon}
-      {prBadge}
-      {issueBadge}
-      {diff ? (
+      {showTerminalStatus ? terminalStatusIcon : null}
+      {showPullRequestBadge ? prBadge : null}
+      {showIssueBadge ? issueBadge : null}
+      {visibleDiff !== null ? (
         <span className="shrink-0 font-mono">
-          <span className="text-diff-addition-foreground">+{formatDiffCount(diff.insertions)}</span>{" "}
-          <span className="text-diff-deletion-foreground">−{formatDiffCount(diff.deletions)}</span>
+          <span className="text-diff-addition-foreground">
+            +{formatDiffCount(visibleDiff.insertions)}
+          </span>{" "}
+          <span className="text-diff-deletion-foreground">
+            −{formatDiffCount(visibleDiff.deletions)}
+          </span>
         </span>
       ) : null}
-      <span
-        aria-hidden
-        className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
-      >
-        <SidebarProviderStack
-          thread={thread}
-          providerEntryByInstanceId={props.providerEntryByInstanceId}
-        />
-      </span>
     </div>
   );
-  const titleLineIcons = metaLineEmpty ? (
-    <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
-      <SidebarProviderStack
-        thread={thread}
-        providerEntryByInstanceId={props.providerEntryByInstanceId}
-      />
-    </span>
-  ) : null;
 
   if (variant !== "card") {
     const multiline = variant === "folder-multiline";
@@ -1397,10 +1376,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             )}
             {draftIndicator}
             {title}
-            {multiline ? titleLineIcons : null}
             {pinIndicator}
-            {multiline ? null : terminalStatusIcon}
-            {multiline ? null : issueBadge}
+            {multiline || !showTerminalStatus ? null : terminalStatusIcon}
+            {multiline || !showIssueBadge ? null : issueBadge}
             {isRegeneratingTitle ? (
               <span role="status" className="sr-only">
                 <T>Regenerating title</T>
@@ -1464,17 +1442,27 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                       <TopStatusIcon icon={topStatus.icon} className="size-3" />
                       {topStatus.label}
                     </span>
-                  ) : (
-                    <span className="text-xs">
-                      <RelativeTimeLabel
-                        timestamp={
-                          variantAction === "unsettle"
-                            ? resolveSettledThreadTimestamp(thread)
-                            : resolveThreadActivityTimestamp(thread)
-                        }
-                      />
+                  ) : cardFields.activityTime || showLatestProviderIcon ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      {showLatestProviderIcon ? (
+                        <SidebarLatestProviderIcon
+                          thread={thread}
+                          providerEntryByInstanceId={props.providerEntryByInstanceId}
+                        />
+                      ) : null}
+                      {cardFields.activityTime ? (
+                        <span className="text-xs">
+                          <RelativeTimeLabel
+                            timestamp={
+                              variantAction === "unsettle"
+                                ? resolveSettledThreadTimestamp(thread)
+                                : resolveThreadActivityTimestamp(thread)
+                            }
+                          />
+                        </span>
+                      ) : null}
                     </span>
-                  )}
+                  ) : null}
                 </span>
                 {variantAction === "unsnooze" ? (
                   !props.snoozeSupported ? null : (
@@ -1601,7 +1589,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             {/* Left of the status slot, the pin would slide when hover swaps the
                 label for the wider row controls. */}
             {pinIndicator}
-            {props.projectDisplayName ? (
+            {cardFields.projectName && props.projectDisplayName ? (
               <span
                 className={cn("min-w-0 flex-1 truncate font-normal text-secondary-label text-xs")}
               >
@@ -1683,9 +1671,19 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         ) : null}
                       </span>
                     )
-                  ) : (
+              ) : cardFields.activityTime || showLatestProviderIcon ? (
+                <span className="inline-flex items-center gap-1.5">
+                  {showLatestProviderIcon ? (
+                    <SidebarLatestProviderIcon
+                      thread={thread}
+                      providerEntryByInstanceId={props.providerEntryByInstanceId}
+                    />
+                  ) : null}
+                  {cardFields.activityTime ? (
                     <RelativeTimeLabel timestamp={resolveThreadActivityTimestamp(thread)} />
-                  )}
+                  ) : null}
+                </span>
+              ) : null}
                 </span>
                 {props.settlementSupported || showSnoozeButton || hasUnsentDraft ? (
                   <span
@@ -1760,7 +1758,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 <T>Regenerating title</T>
               </span>
             ) : null}
-            {titleLineIcons}
           </div>
           {metaLine}
         </div>

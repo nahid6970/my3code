@@ -65,6 +65,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
 const DESKTOP_APP_ID = "com.t3tools.t3code";
+const WINDOWS_SYSTEM_ROOT = process.env.SystemRoot ?? process.env.WINDIR;
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/u;
 
 const BuildPlatform = Schema.Literals(["mac", "linux", "win"]);
@@ -2220,7 +2221,11 @@ export const copyDirectoryPreservingSymlinks = Effect.fn("copyDirectoryPreservin
 );
 
 export const verifyPackagedBundleIsSelfContained = Effect.fn("verifyPackagedBundleIsSelfContained")(
-  function* (input: { readonly asarPath: string; readonly verbose: boolean }) {
+  function* (input: {
+    readonly asarPath: string;
+    readonly verbose: boolean;
+    readonly probeTempDirectory?: string;
+  }) {
     // A PR preview's bundle is untrusted and this job may hold signing secrets, so never run it.
     if (yield* Config.Boolean("T3CODE_DESKTOP_UNTRUSTED_BUNDLE").pipe(Config.withDefault(false))) {
       yield* Effect.log(
@@ -2232,6 +2237,7 @@ export const verifyPackagedBundleIsSelfContained = Effect.fn("verifyPackagedBund
     const path = yield* Path.Path;
 
     const probeRoot = yield* fs.makeTempDirectoryScoped({
+      directory: input.probeTempDirectory,
       prefix: "t3code-bundle-selfcheck-",
     });
     const extractedApp = path.join(probeRoot, "extracted");
@@ -3363,6 +3369,7 @@ export const verifyWindowsPackagedRuntime = Effect.fn(
   readonly appExecutableName: string;
   readonly targetArch: typeof BuildArch.Type;
   readonly verbose: boolean;
+  readonly probeTempDirectory?: string;
 }) {
   const path = yield* Path.Path;
   const asarPath = path.join(input.packagedAppDir, "resources", WINDOWS_SERVER_ASAR_RESOURCE);
@@ -3374,7 +3381,13 @@ export const verifyWindowsPackagedRuntime = Effect.fn(
     );
     return;
   }
-  yield* verifyPackagedBundleIsSelfContained({ asarPath, verbose: input.verbose });
+  yield* verifyPackagedBundleIsSelfContained({
+    asarPath,
+    verbose: input.verbose,
+    ...(input.probeTempDirectory === undefined
+      ? {}
+      : { probeTempDirectory: input.probeTempDirectory }),
+  });
 });
 
 export const validateWindowsPackagedPayload = Effect.fn(
@@ -3387,6 +3400,7 @@ export const validateWindowsPackagedPayload = Effect.fn(
   readonly expectWslRuntime?: boolean;
   readonly fileLimit?: number;
   readonly verbose?: boolean;
+  readonly probeTempDirectory?: string;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -3592,6 +3606,9 @@ export const validateWindowsPackagedPayload = Effect.fn(
     appExecutableName: input.appExecutableName,
     targetArch: input.targetArch,
     verbose: input.verbose ?? false,
+    ...(input.probeTempDirectory === undefined
+      ? {}
+      : { probeTempDirectory: input.probeTempDirectory }),
   });
 
   yield* Effect.log(
@@ -3610,7 +3627,11 @@ export class MacPackagedAppMissingError extends Schema.TaggedError<MacPackagedAp
 }
 
 export const validateMacPackagedPayload = Effect.fn("desktopArtifact.validateMacPackagedPayload")(
-  function* (input: { readonly stageDistDir: string; readonly verbose?: boolean }) {
+  function* (input: {
+    readonly stageDistDir: string;
+    readonly verbose?: boolean;
+    readonly probeTempDirectory?: string;
+  }) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const asarPaths: string[] = [];
@@ -3628,7 +3649,13 @@ export const validateMacPackagedPayload = Effect.fn("desktopArtifact.validateMac
       return yield* new MacPackagedAppMissingError({ stageDistDir: input.stageDistDir });
     }
     for (const asarPath of asarPaths) {
-      yield* verifyPackagedBundleIsSelfContained({ asarPath, verbose: input.verbose ?? false });
+      yield* verifyPackagedBundleIsSelfContained({
+        asarPath,
+        verbose: input.verbose ?? false,
+        ...(input.probeTempDirectory === undefined
+          ? {}
+          : { probeTempDirectory: input.probeTempDirectory }),
+      });
     }
     yield* Effect.log(
       `[desktop-artifact] Validated macOS payload (${String(asarPaths.length)} app bundle(s)).`,
@@ -3647,7 +3674,11 @@ export class LinuxPackagedAppMissingError extends Schema.TaggedError<LinuxPackag
 
 export const validateLinuxPackagedPayload = Effect.fn(
   "desktopArtifact.validateLinuxPackagedPayload",
-)(function* (input: { readonly stageDistDir: string; readonly verbose?: boolean }) {
+)(function* (input: {
+  readonly stageDistDir: string;
+  readonly verbose?: boolean;
+  readonly probeTempDirectory?: string;
+}) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const asarPaths = (yield* fs.readDirectory(input.stageDistDir))
@@ -3657,32 +3688,64 @@ export const validateLinuxPackagedPayload = Effect.fn(
     return yield* new LinuxPackagedAppMissingError({ stageDistDir: input.stageDistDir });
   }
   for (const asarPath of asarPaths) {
-    yield* verifyPackagedBundleIsSelfContained({ asarPath, verbose: input.verbose ?? false });
+    yield* verifyPackagedBundleIsSelfContained({
+      asarPath,
+      verbose: input.verbose ?? false,
+      ...(input.probeTempDirectory === undefined
+        ? {}
+        : { probeTempDirectory: input.probeTempDirectory }),
+    });
   }
   yield* Effect.log(
     `[desktop-artifact] Validated Linux payload (${String(asarPaths.length)} app bundle(s)).`,
   );
 });
 
-/** Check the OS temp location before an expensive desktop build reaches the isolated bundle probe. */
-const preflightBundleProbeTempDirectory = Effect.fn("preflightBundleProbeTempDirectory")(
-  function* () {
+/** Resolve a writable temp location the isolated bundle probe cannot escape through. */
+export const preflightBundleProbeTempDirectory = Effect.fn("preflightBundleProbeTempDirectory")(
+  function* (configuredTempDirectory = NodeOS.tmpdir()) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const tempDirectory = NodeOS.tmpdir();
-    const probeApp = path.join(tempDirectory, "t3code-bundle-selfcheck-preflight", "app");
-    for (const candidate of ancestorNodeModulesPaths(probeApp, path.sep)) {
-      if (yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
-        return yield* new BundleNotSelfContainedError({
-          exitCode: -1,
-          output: [
-            `[desktop-artifact] Build preflight stopped before packaging: the temp directory (${tempDirectory}) is beneath ${candidate}.`,
-            "The isolated server check would be able to see that node_modules folder and reject the package after the long build.",
-            'On Windows PowerShell, set $env:TEMP and $env:TMP to a temp directory outside that node_modules tree (for example, "$env:SystemRoot\\Temp") and rerun the build.',
-          ].join("\n"),
-        });
-      }
+    const hostPlatform = yield* HostProcess.Platform;
+    const visibleNodeModules = Effect.fn("preflightBundleProbeTempDirectory.visibleNodeModules")(
+      function* (tempDirectory: string) {
+        const probeApp = path.join(tempDirectory, "t3code-bundle-selfcheck-preflight", "app");
+        for (const candidate of ancestorNodeModulesPaths(probeApp, path.sep)) {
+          if (yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false))) return candidate;
+        }
+        return null;
+      },
+    );
+    const configuredConflict = yield* visibleNodeModules(configuredTempDirectory);
+    if (configuredConflict === null) return configuredTempDirectory;
+
+    const fallbackTempDirectory =
+      hostPlatform === "win32" && WINDOWS_SYSTEM_ROOT
+        ? path.join(WINDOWS_SYSTEM_ROOT, "Temp")
+        : null;
+    const fallbackConflict =
+      fallbackTempDirectory === null ? null : yield* visibleNodeModules(fallbackTempDirectory);
+    const fallbackWritable =
+      fallbackTempDirectory === null
+        ? false
+        : Option.isSome(
+            yield* fs.access(fallbackTempDirectory, { writable: true }).pipe(Effect.option),
+          );
+    if (fallbackTempDirectory === null || fallbackConflict !== null || !fallbackWritable) {
+      return yield* new BundleNotSelfContainedError({
+        exitCode: -1,
+        output: [
+          `[desktop-artifact] Build preflight found that the configured temp directory (${configuredTempDirectory}) is beneath ${configuredConflict}.`,
+          "The isolated server check could see that node_modules folder and reject the package after the long build.",
+          "Set TEMP and TMP to a writable directory outside that node_modules tree, then rerun the build.",
+        ].join("\n"),
+      });
     }
+
+    yield* Effect.log(
+      `[desktop-artifact] Configured temp directory is beneath ${configuredConflict}; using ${fallbackTempDirectory} for isolated bundle checks.`,
+    );
+    return fallbackTempDirectory;
   },
 );
 
@@ -3693,7 +3756,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const hostPlatform = yield* HostProcess.Platform;
-  yield* preflightBundleProbeTempDirectory();
+  const bundleProbeTempDirectory = yield* preflightBundleProbeTempDirectory();
   if (hostPlatform === "linux" && options.platform === "linux") {
     yield* preflightLinuxDesktopBuild(options.arch);
   }
@@ -4188,6 +4251,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
         runtimeArchivePath: options.wslRuntime,
       }),
       verbose: options.verbose,
+      probeTempDirectory: bundleProbeTempDirectory,
     });
   }
   // The probe runs on the host Node, so a cross-arch build skips it.
@@ -4196,11 +4260,19 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     hostPlatform === "linux" &&
     options.arch === (yield* HostProcess.Architecture)
   ) {
-    yield* validateLinuxPackagedPayload({ stageDistDir, verbose: options.verbose });
+    yield* validateLinuxPackagedPayload({
+      stageDistDir,
+      verbose: options.verbose,
+      probeTempDirectory: bundleProbeTempDirectory,
+    });
   }
   // x64 builds on arm64 runners; the arm64 check covers the shared JS bundle.
   if (options.platform === "mac" && options.arch === "arm64" && hostPlatform === "darwin") {
-    yield* validateMacPackagedPayload({ stageDistDir, verbose: options.verbose });
+    yield* validateMacPackagedPayload({
+      stageDistDir,
+      verbose: options.verbose,
+      probeTempDirectory: bundleProbeTempDirectory,
+    });
   }
 
   const copiedArtifacts = yield* copyDesktopBuildArtifacts(
