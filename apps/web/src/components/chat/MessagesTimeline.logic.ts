@@ -318,6 +318,7 @@ export const TIMELINE_MINIMAP_TARGET_OFFSET = 24;
 const TIMELINE_MINIMAP_MIN_HEIGHT_PX = 112;
 const TIMELINE_MINIMAP_MAX_HEIGHT_PX = 320;
 const TIMELINE_MINIMAP_DOT_SPACING_PX = 20;
+const TIMELINE_MINIMAP_DOT_EDGE_INSET_PX = 6;
 const TIMELINE_MINIMAP_PERSISTENT_GUTTER = 48;
 
 export interface WorkGroupScrollAnchor {
@@ -371,18 +372,25 @@ export function resolveTimelineIsAtEnd(state: TimelineEndState | undefined): boo
 }
 
 export function resolveTimelineMinimapHeightStyle(itemCount: number): string {
+  return `${resolveTimelineMinimapHeightPx(itemCount)}px`;
+}
+
+function resolveTimelineMinimapHeightPx(itemCount: number): number {
   const itemHeight = Math.max(0, itemCount) * TIMELINE_MINIMAP_DOT_SPACING_PX;
-  return `${Math.min(
+  return Math.min(
     TIMELINE_MINIMAP_MAX_HEIGHT_PX,
     Math.max(TIMELINE_MINIMAP_MIN_HEIGHT_PX, itemHeight),
-  )}px`;
+  );
 }
 
 export function resolveTimelineMinimapTopPercent(index: number, itemCount: number): number {
   if (itemCount <= 1) {
-    return 0;
+    return 50;
   }
-  return (Math.max(0, Math.min(index, itemCount - 1)) / (itemCount - 1)) * 100;
+  const height = resolveTimelineMinimapHeightPx(itemCount);
+  const inset = Math.min(TIMELINE_MINIMAP_DOT_EDGE_INSET_PX, height / 2);
+  const progress = Math.max(0, Math.min(index, itemCount - 1)) / (itemCount - 1);
+  return ((inset + progress * (height - 2 * inset)) / height) * 100;
 }
 
 export function resolveTimelineMinimapIndexFromPointer(input: {
@@ -398,7 +406,12 @@ export function resolveTimelineMinimapIndexFromPointer(input: {
     return 0;
   }
 
-  const progress = Math.max(0, Math.min(1, (input.pointerY - input.railTop) / input.railHeight));
+  const inset = Math.min(TIMELINE_MINIMAP_DOT_EDGE_INSET_PX, input.railHeight / 2);
+  const usableHeight = Math.max(1, input.railHeight - 2 * inset);
+  const progress = Math.max(
+    0,
+    Math.min(1, (input.pointerY - input.railTop - inset) / usableHeight),
+  );
   return Math.max(0, Math.min(input.itemCount - 1, Math.round(progress * (input.itemCount - 1))));
 }
 
