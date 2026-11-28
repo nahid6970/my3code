@@ -6,6 +6,7 @@ T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop
 
 ## 2. Latest Implementation
 
+- **Settled thread bulk deletion** — The Settled shelf has Select all / Clear controls, supports existing Ctrl/Cmd-click and Shift-click selection, and exposes Delete selected for its selected threads. Bulk deletion uses the same permission checks, confirmation, per-thread deletion handling, and error toast as the context menu.
 - **Thread project reassignment** — The web and desktop thread menus can move a thread to another project in the same environment. The searchable picker is shared by the sidebar and thread header.
   - The client dispatches `thread.change-project`; the server updates the persisted thread projection and emits `thread.project-changed`.
   - The MCP `t3_thread_organize` tool also supports `change_project` with `targetProjectId`.
@@ -14,8 +15,8 @@ T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop
 
 ## 3. Critical Context
 
-The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale.
+The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale. Settled shelf selection is scoped to the loaded `settledThreads` collection.
 
 ## 4. Pending Task
 
-No pending implementation task for thread project reassignment.
+Check whether the settled shelf should offer pagination-wide selection when older settled threads are loaded incrementally.

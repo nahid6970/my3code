@@ -79,6 +79,7 @@ import {
   FolderPlusIcon,
   PlusIcon,
   SettingsIcon,
+  Trash2Icon,
 } from "lucide-react";
 import {
   useEffect,
@@ -1026,6 +1027,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
+  const selectThreads = useThreadSelectionStore((s) => s.selectThreads);
+  const selectedThreadKeysState = useThreadSelectionStore((s) => s.selectedThreadKeys);
   const acknowledgeWoke = useAcknowledgeThreadWoke();
   // A Settings or Usage modal keeps the thread behind it current.
   const routeTarget = useShownThreadRouteTarget().shownTarget;
@@ -2418,6 +2421,54 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     },
   );
 
+  const deleteSelectedThreads = useStableCallback(async (threadKeys: readonly string[]) => {
+    const api = readLocalApi();
+    const selectedThreadKeys = [...useThreadSelectionStore.getState().selectedThreadKeys];
+    const selectedThreads = threadKeys.flatMap((threadKey) => {
+      const thread = threadByKeyRef.current.get(threadKey);
+      return thread ? [thread] : [];
+    });
+    if (!api || selectedThreads.length === 0 || !checkThreadOperations(selectedThreads)) return;
+    if (confirmThreadDelete) {
+      const confirmed = await settlePromise(() =>
+        api.dialogs.confirm(
+          [
+            gt("{count, plural, one {Delete {count} thread?} other {Delete {count} threads?}}", {
+              count: selectedThreads.length,
+            }),
+            gt("This permanently clears conversation history for these threads."),
+          ].join("\n"),
+          { variant: "destructive" },
+        ),
+      );
+      if (confirmed._tag === "Failure" || !confirmed.value) return;
+    }
+    const { deletedThreadKeys, firstFailure } = await deleteSelectedThreadEntries({
+      entries: threadKeys.map((threadKey) => ({ threadKey })),
+      delete: async ({ threadKey }, deletedThreadKeys) => {
+        const thread = threadByKeyRef.current.get(threadKey);
+        if (!thread) return null;
+        return deleteThread(scopeThreadRef(thread.environmentId, thread.id), { deletedThreadKeys });
+      },
+    });
+    if (firstFailure !== null) {
+      const firstError = squashAtomCommandFailure(firstFailure);
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: gt("Failed to delete threads"),
+          description: thrownErrorMessage(firstError, m) ?? gt("An error occurred."),
+        }),
+      );
+    }
+    removeFromSelection(
+      getThreadKeysToDeselectAfterDelete(selectedThreadKeys, deletedThreadKeys, (threadKey) => {
+        const threadRef = parseScopedThreadKey(threadKey);
+        return threadRef !== null && readThreadShell(threadRef) !== null;
+      }),
+    );
+  });
+
   const handleMultiSelectContextMenu = useStableCallback(
     async (position: { x: number; y: number }, source: ContextMenuSource) => {
       const api = readLocalApi();
@@ -2626,55 +2677,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         return;
       }
       if (clicked.value !== "delete") return;
-      if (confirmThreadDelete) {
-        const confirmed = await settlePromise(() =>
-          api.dialogs.confirm(
-            [
-              gt("{count, plural, one {Delete {count} thread?} other {Delete {count} threads?}}", {
-                count,
-              }),
-              gt("This permanently clears conversation history for these threads."),
-            ].join("\n"),
-            { variant: "destructive" },
-          ),
-        );
-        if (confirmed._tag === "Failure" || !confirmed.value) return;
-      }
-      if (
-        !checkThreadOperations(
-          threadKeys.flatMap((threadKey) => {
-            const thread = threadByKeyRef.current.get(threadKey);
-            return thread ? [thread] : [];
-          }),
-        )
-      )
-        return;
-      const { deletedThreadKeys, firstFailure } = await deleteSelectedThreadEntries({
-        entries: threadKeys.map((threadKey) => ({ threadKey })),
-        delete: async ({ threadKey }, deletedThreadKeys) => {
-          const thread = threadByKeyRef.current.get(threadKey);
-          if (!thread) return null;
-          return deleteThread(scopeThreadRef(thread.environmentId, thread.id), {
-            deletedThreadKeys,
-          });
-        },
-      });
-      if (firstFailure !== null) {
-        const firstError = squashAtomCommandFailure(firstFailure);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: gt("Failed to delete threads"),
-            description: thrownErrorMessage(firstError, m) ?? gt("An error occurred."),
-          }),
-        );
-      }
-      removeFromSelection(
-        getThreadKeysToDeselectAfterDelete(selectedThreadKeys, deletedThreadKeys, (threadKey) => {
-          const threadRef = parseScopedThreadKey(threadKey);
-          return threadRef !== null && readThreadShell(threadRef) !== null;
-        }),
-      );
+      await deleteSelectedThreads(threadKeys);
     },
   );
 
@@ -3823,23 +3826,73 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           );
                           break;
                         case "settled-header":
-                          items.push(
-                            <SidebarSectionHeader
-                              key="settled-shelf-header"
-                              marker="settled-header"
-                              className={cn(
-                                workingThreads.length + snoozedThreads.length === 0 && "mt-auto",
-                              )}
-                              label={gt("Settled", { $context: "sidebar section" })}
-                              count={settledCount}
-                              dragging={from !== null}
-                              isDropTarget={dragTargetSection === "settled"}
-                              toggle={{
-                                expanded: settledShelfExpanded,
-                                onToggle: toggleSettledShelf,
-                              }}
-                            />,
-                          );
+                          {
+                            const settledKeys = settledThreads.map((thread) =>
+                              scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+                            );
+                            const selectedSettledKeys = settledKeys.filter((key) =>
+                              selectedThreadKeysState.has(key),
+                            );
+                            const selectedSettledThreads = settledThreads.filter((thread) =>
+                              selectedThreadKeysState.has(
+                                scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+                              ),
+                            );
+                            const allSettledSelected =
+                              settledKeys.length > 0 &&
+                              selectedSettledKeys.length === settledKeys.length;
+                            items.push(
+                              <SidebarSectionHeader
+                                key="settled-shelf-header"
+                                marker="settled-header"
+                                className={cn(
+                                  workingThreads.length + snoozedThreads.length === 0 && "mt-auto",
+                                )}
+                                label={gt("Settled", { $context: "sidebar section" })}
+                                count={settledCount}
+                                dragging={from !== null}
+                                isDropTarget={dragTargetSection === "settled"}
+                                toggle={{
+                                  expanded: settledShelfExpanded,
+                                  onToggle: toggleSettledShelf,
+                                }}
+                                action={
+                                  <>
+                                    <Button
+                                      size="xs"
+                                      variant="ghost"
+                                      aria-label={allSettledSelected ? gt("Clear") : gt("Select all")}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        selectThreads(allSettledSelected ? [] : settledKeys);
+                                      }}
+                                    >
+                                      {allSettledSelected ? gt("Clear") : gt("Select all")}
+                                    </Button>
+                                    {selectedSettledKeys.length > 0 ? (
+                                      <Button
+                                        size="xs"
+                                        variant="ghost"
+                                        disabled={!canOperateThreads(selectedSettledThreads)}
+                                        aria-label={gt("Delete ({count})", {
+                                          count: selectedSettledKeys.length,
+                                        })}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          void deleteSelectedThreads(selectedSettledKeys);
+                                        }}
+                                      >
+                                        <Trash2Icon aria-hidden className="size-3" />
+                                        {gt("Delete ({count})", {
+                                          count: selectedSettledKeys.length,
+                                        })}
+                                      </Button>
+                                    ) : null}
+                                  </>
+                                }
+                              />,
+                            );
+                          }
                           break;
                         case "settled-placeholder":
                           items.push(

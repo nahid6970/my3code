@@ -14,6 +14,7 @@ interface ThreadSelectionStore extends ThreadSelectionState {
     orderedThreadKeys: readonly string[],
     openThreadKey?: string | null,
   ) => void;
+  selectThreads: (threadKeys: readonly string[]) => void;
   clearSelection: () => void;
   removeFromSelection: (threadKeys: readonly string[]) => void;
   hasSelection: () => boolean;
@@ -78,6 +79,14 @@ export const useThreadSelectionStore = create<ThreadSelectionStore>((set, get) =
         }
       }
       return { selectedThreadKeys: next, anchorThreadKey: anchor };
+    });
+  },
+
+  selectThreads: (threadKeys) => {
+    const selectedThreadKeys = new Set(threadKeys);
+    set({
+      selectedThreadKeys,
+      anchorThreadKey: threadKeys[0] ?? null,
     });
   },
 
