@@ -159,7 +159,7 @@ export function TimelineMinimap({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "pointer-events-none size-2 rounded-full border border-background/90 bg-foreground/65 transition-[background-color,transform] duration-150 data-[in-view=true]:bg-foreground",
+                    "pointer-events-none size-2 rounded-full border border-background/90 bg-foreground/65 transition-[background-color,transform] duration-150 data-[in-view=true]:bg-sky-400",
                     activeDistance === 0 ? "scale-150" : activeDistance === 1 && "scale-125",
                   )}
                   data-in-view="false"
