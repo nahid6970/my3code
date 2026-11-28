@@ -667,6 +667,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.tag.set":
     case "thread.visit":
     case "thread.mark-unread":
+    case "thread.change-project":
     case "thread.metadata.update":
     case "thread.pull-request.link":
     case "thread.pull-request.unlink":
@@ -5200,6 +5201,13 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
               : {}),
           };
         }
+        case "thread.change-project": {
+          return {
+            ...thread,
+            projectId: command.targetProjectId,
+            updatedAt: now,
+          };
+        }
         case "thread.metadata.update": {
           const previousRecovery =
             thread.limitRecovery?.runId === command.limitRecovery?.runId &&
@@ -5657,6 +5665,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.tags-updated" as const;
         case "thread.mark-unread":
           return "thread.marked-unread" as const;
+        case "thread.change-project":
+          return "thread.project-changed" as const;
         case "thread.metadata.update":
         case "thread.title.regeneration.complete":
           return "thread.metadata-updated" as const;

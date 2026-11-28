@@ -2218,6 +2218,7 @@ export const OrchestrationV2DomainEvent = Schema.Union([
       "thread.tags-updated",
       "thread.visited",
       "thread.marked-unread",
+      "thread.project-changed",
       "thread.metadata-updated",
       "thread.pull-request-synced",
       "thread.issue-synced",
@@ -3179,6 +3180,7 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
       "thread.tags-updated",
       "thread.visited",
       "thread.marked-unread",
+      "thread.project-changed",
       "thread.pull-request-synced",
       "thread.issue-synced",
       "thread.metadata-updated",
@@ -3485,6 +3487,12 @@ export const OrchestrationV2Command = Schema.Union([
     type: Schema.Literal("thread.mark-unread"),
     commandId: CommandId,
     threadId: ThreadId,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.change-project"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    targetProjectId: ProjectId,
   }),
   Schema.Struct({
     type: Schema.Literal("thread.metadata.update"),

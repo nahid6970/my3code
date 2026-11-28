@@ -432,6 +432,15 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
           }
           command = { ...common, type: "thread.snooze", snoozedUntil: input.snoozedUntil };
           break;
+        case "change_project":
+          if (input.targetProjectId === undefined) {
+            return yield* new OrchestratorMcpFailure({
+              code: "invalid_request",
+              message: "change_project requires targetProjectId.",
+            });
+          }
+          command = { ...common, type: "thread.change-project", targetProjectId: input.targetProjectId };
+          break;
         case "unsnooze":
         case "unsettle":
           command = { ...common, type: `thread.${input.action}`, reason: "user" };

@@ -23,6 +23,7 @@ export type ThreadActionMenuId =
   | "rename"
   | "regenerate-title"
   | "mark-unread"
+  | "move-to-project"
   | "share-guest"
   | "copy"
   | "copy-path"
@@ -236,6 +237,7 @@ export function buildThreadActionMenuItems(
     ...(state.hasCompletedRun && !state.isRunning
       ? [{ id: "mark-unread" as const, label: resolve(msg("Mark unread")), icon: "mail-open" }]
       : []),
+    { id: "move-to-project" as const, label: resolve(msg("Move to project…")), icon: "folder-input" },
     ...(state.canShareWithGuest
       ? [{ id: "share-guest" as const, label: resolve(msg("Share with guest")), icon: "user-plus" }]
       : []),
