@@ -34,6 +34,7 @@ export function TimelineMinimap({
 }) {
   const gt = useGT();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
   const dotRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const wheelTargetRef = (node: HTMLDivElement | null) => {
     if (!node) return;
@@ -59,7 +60,7 @@ export function TimelineMinimap({
     resolvedCurrentIndex === null || atEnd ? null : (items[resolvedCurrentIndex + 1] ?? null);
 
   const resolveActiveIndexFromPointer = (event: MouseEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = (railRef.current ?? event.currentTarget).getBoundingClientRect();
     return resolveTimelineMinimapIndexFromPointer({
       itemCount: items.length,
       railTop: rect.top,
@@ -102,6 +103,7 @@ export function TimelineMinimap({
             left: hitStripLeft,
             width: hitStripWidth,
           }}
+          ref={railRef}
         >
           <span
             aria-hidden="true"
@@ -135,7 +137,15 @@ export function TimelineMinimap({
                 data-testid="timeline-minimap-dot"
                 key={item.id}
                 onBlur={() => setActiveIndex(null)}
-                onClick={() => onSelect(item)}
+                onClick={(event) => {
+                  // At high turn counts the 24px hit targets overlap. Resolve pointer clicks
+                  // against the rail itself so the nearest visible dot always wins.
+                  const selectedIndex =
+                    event.detail === 0 ? index : resolveActiveIndexFromPointer(event);
+                  const selectedItem = items[selectedIndex ?? index] ?? item;
+                  setActiveIndex(selectedIndex ?? index);
+                  onSelect(selectedItem);
+                }}
                 onFocus={() => setActiveIndex(index)}
                 onKeyDown={(event) => {
                   let nextIndex: number | null = null;
@@ -159,13 +169,14 @@ export function TimelineMinimap({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "pointer-events-none size-2 rounded-full border border-background/90 bg-foreground/65 transition-[background-color,transform] duration-150 data-[in-view=true]:bg-sky-400",
+                    "pointer-events-none size-2 rounded-full border border-background/90 bg-foreground/65 transition-[background-color,transform] duration-150 data-[in-view=true]:bg-info-foreground",
                     activeDistance === 0 ? "scale-150" : activeDistance === 1 && "scale-125",
                   )}
                   data-in-view="false"
                   data-minimap-strip
                   style={{
-                    backgroundColor: isCurrent || activeDistance === 0 ? "#38bdf8" : undefined,
+                    backgroundColor:
+                      isCurrent || activeDistance === 0 ? "var(--color-info-foreground)" : undefined,
                   }}
                   ref={(node) => {
                     if (node) {

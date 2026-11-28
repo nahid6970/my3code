@@ -504,6 +504,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   const citationThreadRef = parseScopedThreadKey(routeThreadKey);
   const openPullRequest = useOpenPrLink(citationThreadRef ?? undefined);
   const [minimapStripMap] = useState(() => new Map<string, HTMLSpanElement>());
+  const minimapNavigationRequestRef = useRef(0);
   const normalizedFindQuery = findQuery.trim();
   const findActive = findExpanded;
 
@@ -960,14 +961,29 @@ const ConversationTimeline = memo(function ConversationTimeline({
           viewport.getBoundingClientRect().top -
           firstBufferedRow.getBoundingClientRect().top
         : state.scroll;
-    const visibleRange = resolveTimelineMinimapVisibleRange({ ...state, scroll });
+    let visibleDomStart: number | null = null;
+    let visibleDomEnd: number | null = null;
+    const viewportBounds = viewport?.getBoundingClientRect();
+    if (viewportBounds && firstBufferedIndex != null && state.endBuffered != null) {
+      for (let index = firstBufferedIndex; index <= state.endBuffered; index += 1) {
+        const rowBounds = state.elementAtIndex(index)?.getBoundingClientRect();
+        if (
+          rowBounds &&
+          rowBounds.top < viewportBounds.bottom &&
+          rowBounds.bottom > viewportBounds.top
+        ) {
+          visibleDomStart ??= index;
+          visibleDomEnd = index;
+        }
+      }
+    }
     for (const [index, item] of minimapItems.entries()) {
       const strip = minimapStripMap.get(item.id);
       const inView = isTimelineMinimapTurnVisible(
         item.rowIndex,
         minimapItems[index + 1]?.rowIndex,
-        visibleRange.start,
-        visibleRange.end,
+        visibleDomStart,
+        visibleDomEnd,
       );
       const next = inView ? "true" : "false";
       // Avoid dirtying style state on every scroll tick for unchanged strips.
@@ -1551,10 +1567,31 @@ const ConversationTimeline = memo(function ConversationTimeline({
               onWheel={forwardMinimapWheel}
               onSelect={(item) => {
                 navigateTimeline();
-                void listRef.current?.scrollToIndex({
+                const list = listRef.current;
+                if (!list) return;
+                const request = ++minimapNavigationRequestRef.current;
+                const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                void list.scrollToIndex({
                   index: item.rowIndex,
-                  animated: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+                  animated: !reduceMotion,
                   viewOffset: TIMELINE_MINIMAP_TARGET_OFFSET,
+                }).then(() => {
+                  if (
+                    request !== minimapNavigationRequestRef.current ||
+                    listRef.current !== list
+                  ) {
+                    return;
+                  }
+                  const viewport = list.getScrollableNode();
+                  const targetRow = list.getState?.()?.elementAtIndex(item.rowIndex);
+                  if (!viewport || !targetRow) return;
+                  const offset =
+                    targetRow.getBoundingClientRect().top -
+                    viewport.getBoundingClientRect().top -
+                    TIMELINE_MINIMAP_TARGET_OFFSET;
+                  if (Math.abs(offset) > 1) {
+                    viewport.scrollBy({ top: offset, behavior: reduceMotion ? "auto" : "smooth" });
+                  }
                 });
               }}
             />
