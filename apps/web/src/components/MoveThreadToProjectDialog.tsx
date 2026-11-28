@@ -23,9 +23,7 @@ type Request = {
 };
 const useRequest = create<{ request: Request | null }>(() => ({ request: null }));
 
-export function requestMoveThreadToProject(
-  threadRef: ScopedThreadRef,
-): Promise<MoveChoice | null> {
+export function requestMoveThreadToProject(threadRef: ScopedThreadRef): Promise<MoveChoice | null> {
   useRequest.getState().request?.resolve(null);
   return new Promise((resolve) => useRequest.setState({ request: { threadRef, resolve } }));
 }
@@ -130,9 +128,7 @@ function MoveThreadToProjectDialog(props: { readonly threadRef: ScopedThreadRef 
                       type="button"
                       onClick={() => setSelectedProjectId(project.id)}
                       className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent ${
-                        selectedProject === project.id
-                          ? "bg-accent"
-                          : ""
+                        selectedProject === project.id ? "bg-accent" : ""
                       }`}
                     >
                       {project.projectIcon || project.faviconPath ? (

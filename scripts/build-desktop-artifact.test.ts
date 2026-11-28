@@ -256,7 +256,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       if ((yield* HostProcess.Platform) !== "win32") return;
       assert.isDefined(WINDOWS_SYSTEM_ROOT);
       const fallback = NodePath.join(WINDOWS_SYSTEM_ROOT, "Temp");
-      assert.equal(yield* preflightBundleProbeTempDirectory(REPO_NODE_MODULES_PROBE_TEMP), fallback);
+      assert.equal(
+        yield* preflightBundleProbeTempDirectory(REPO_NODE_MODULES_PROBE_TEMP),
+        fallback,
+      );
     }),
   );
 

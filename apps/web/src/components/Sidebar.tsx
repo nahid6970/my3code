@@ -1215,16 +1215,12 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const scopedProjectGroups = revealWidensScope ? [] : chosenProjectGroups;
   const scopedProjectRefs = scopedProjectGroups.flatMap((project) => project.memberProjectRefs);
   const scopedProjectKeys = revealWidensScope ? null : chosenScopeProjectKeys;
-  const threadSearch = useThreadSearch(
-    connectedEnvironmentIds,
-    threadSearchQuery,
-    {
-      ...(scopedProjectGroups.length === 0
-        ? {}
-        : { projectIds: scopedProjectRefs.map((projectRef) => projectRef.projectId) }),
-      ...(searchChatHistoryEnabled ? {} : { titlesOnly: true }),
-    },
-  );
+  const threadSearch = useThreadSearch(connectedEnvironmentIds, threadSearchQuery, {
+    ...(scopedProjectGroups.length === 0
+      ? {}
+      : { projectIds: scopedProjectRefs.map((projectRef) => projectRef.projectId) }),
+    ...(searchChatHistoryEnabled ? {} : { titlesOnly: true }),
+  });
   const routeDraftIdForRows = routeTarget?.kind === "draft" ? routeTarget.draftId : null;
   const draftTerminalLabels = useDraftTerminalLabels();
   const visibleDraftSessionCount = useComposerDraftStore((store) => {

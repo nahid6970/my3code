@@ -439,7 +439,11 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
               message: "change_project requires targetProjectId.",
             });
           }
-          command = { ...common, type: "thread.change-project", targetProjectId: input.targetProjectId };
+          command = {
+            ...common,
+            type: "thread.change-project",
+            targetProjectId: input.targetProjectId,
+          };
           break;
         case "unsnooze":
         case "unsettle":

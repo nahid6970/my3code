@@ -1671,19 +1671,19 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         ) : null}
                       </span>
                     )
-              ) : cardFields.activityTime || showLatestProviderIcon ? (
-                <span className="inline-flex items-center gap-1.5">
-                  {showLatestProviderIcon ? (
-                    <SidebarLatestProviderIcon
-                      thread={thread}
-                      providerEntryByInstanceId={props.providerEntryByInstanceId}
-                    />
+                  ) : cardFields.activityTime || showLatestProviderIcon ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      {showLatestProviderIcon ? (
+                        <SidebarLatestProviderIcon
+                          thread={thread}
+                          providerEntryByInstanceId={props.providerEntryByInstanceId}
+                        />
+                      ) : null}
+                      {cardFields.activityTime ? (
+                        <RelativeTimeLabel timestamp={resolveThreadActivityTimestamp(thread)} />
+                      ) : null}
+                    </span>
                   ) : null}
-                  {cardFields.activityTime ? (
-                    <RelativeTimeLabel timestamp={resolveThreadActivityTimestamp(thread)} />
-                  ) : null}
-                </span>
-              ) : null}
                 </span>
                 {props.settlementSupported || showSnoozeButton || hasUnsentDraft ? (
                   <span

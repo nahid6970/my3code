@@ -47,6 +47,16 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
       },
     },
   ],
+  "folder-input": [
+    {
+      tag: "path",
+      attrs: {
+        d: "M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1",
+      },
+    },
+    { tag: "path", attrs: { d: "M2 13h10" } },
+    { tag: "path", attrs: { d: "m9 16 3-3-3-3" } },
+  ],
   "git-branch": [
     { tag: "line", attrs: { x1: "6", x2: "6", y1: "3", y2: "15" } },
     { tag: "circle", attrs: { cx: "18", cy: "6", r: "3" } },
@@ -242,11 +252,76 @@ export function dismissContextMenu(restoreFocus = true): void {
   activeContextMenuDismiss = null;
 }
 
-export function showContextMenuFallback<T extends string>(
+const iconDataUrlCache = new Map<string, Promise<string | undefined>>();
+
+export async function ensureItemIconImages<T extends string>(
+  items: readonly ContextMenuItem<T>[],
+): Promise<ReadonlyArray<ContextMenuItem<T>>> {
+  return Promise.all(
+    items.map(async (item) => {
+      let iconImage = item.iconImage;
+      if (iconImage === undefined && typeof item.icon === "string") {
+        iconImage = await getOrRenderIconDataUrl(item.icon);
+      }
+      let children = item.children;
+      if (children && children.length > 0) {
+        children = await ensureItemIconImages(children);
+      }
+      return {
+        ...item,
+        ...(iconImage !== undefined ? { iconImage } : {}),
+        ...(children ? { children } : {}),
+      };
+    }),
+  );
+}
+
+function getOrRenderIconDataUrl(iconName: string): Promise<string | undefined> {
+  let cached = iconDataUrlCache.get(iconName);
+  if (cached) return cached;
+  const promise = (async () => {
+    const paths = ICON_PATHS[iconName];
+    if (!paths || typeof document === "undefined") return undefined;
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">${paths
+      .map(
+        (p) =>
+          `<${p.tag} ${Object.entries(p.attrs)
+            .map(([k, v]) => `${k}="${v}"`)
+            .join(" ")}/>`,
+      )
+      .join("")}</svg>`;
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return undefined;
+      ctx.drawImage(img, 0, 0, 32, 32);
+      return canvas.toDataURL("image/png");
+    } catch {
+      return undefined;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  })();
+  iconDataUrlCache.set(iconName, promise);
+  return promise;
+}
+
+export async function showContextMenuFallback<T extends string>(
   items: readonly ContextMenuItem<T>[],
   position?: { x: number; y: number },
   source?: ContextMenuSource,
 ): Promise<T | null> {
+  const enrichedItems = await ensureItemIconImages(items);
   dismissContextMenu();
   return new Promise<T | null>((resolve) => {
     let focusedElement = document.activeElement;

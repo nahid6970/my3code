@@ -205,10 +205,12 @@ export function buildThreadActionMenuItems(
                     id: `snooze:${preset.id}` as const,
                     label: preset.label,
                     detail: preset.whenLabel,
+                    icon: "clock",
                   })),
                   {
                     id: "snooze:custom" as const,
                     label: resolve(msg("Custom…")),
+                    icon: "clock",
                     separatorBefore: state.snoozePresets.length > 0,
                   },
                 ],
@@ -237,7 +239,11 @@ export function buildThreadActionMenuItems(
     ...(state.hasCompletedRun && !state.isRunning
       ? [{ id: "mark-unread" as const, label: resolve(msg("Mark unread")), icon: "mail-open" }]
       : []),
-    { id: "move-to-project" as const, label: resolve(msg("Move to project…")), icon: "folder-input" },
+    {
+      id: "move-to-project" as const,
+      label: resolve(msg("Move to project…")),
+      icon: "folder-input",
+    },
     ...(state.canShareWithGuest
       ? [{ id: "share-guest" as const, label: resolve(msg("Share with guest")), icon: "user-plus" }]
       : []),

@@ -95,11 +95,7 @@ function isContextMenuElementDetails(value: unknown): value is ContextMenuElemen
   );
 }
 
-function buildContextMenuElementScript(
-  x: number,
-  y: number,
-  inspect = false,
-): string {
+function buildContextMenuElementScript(x: number, y: number, inspect = false): string {
   return `(() => {
     const x = ${JSON.stringify(x)};
     const y = ${JSON.stringify(y)};
@@ -457,9 +453,7 @@ function inspectContextMenuElement(frame: Electron.WebFrameMain): Effect.Effect<
       return await frame.executeJavaScript(buildContextMenuInspectorModeScript());
     },
     catch: (cause) => new ContextMenuElementCopyError({ cause }),
-  }).pipe(
-    Effect.catch(() => logWindowWarning("failed to inspect context-menu element")),
-  );
+  }).pipe(Effect.catch(() => logWindowWarning("failed to inspect context-menu element")));
 }
 // Match --workspace-topbar-height in apps/web/src/index.css; native macOS buttons stay 14 points at any zoom.
 const MACOS_WORKSPACE_TOPBAR_HEIGHT = 52;
@@ -1180,8 +1174,7 @@ export const make = Effect.gen(function* () {
             { type: "separator" },
             {
               label: m(msg("Inspect UI element")),
-              click: () =>
-                void runPromise(inspectContextMenuElement(inspectorFrame)),
+              click: () => void runPromise(inspectContextMenuElement(inspectorFrame)),
             },
             {
               label: m(msg("Copy UI element details")),

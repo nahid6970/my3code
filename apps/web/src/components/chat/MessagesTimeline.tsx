@@ -1571,28 +1571,33 @@ const ConversationTimeline = memo(function ConversationTimeline({
                 if (!list) return;
                 const request = ++minimapNavigationRequestRef.current;
                 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                void list.scrollToIndex({
-                  index: item.rowIndex,
-                  animated: !reduceMotion,
-                  viewOffset: TIMELINE_MINIMAP_TARGET_OFFSET,
-                }).then(() => {
-                  if (
-                    request !== minimapNavigationRequestRef.current ||
-                    listRef.current !== list
-                  ) {
-                    return;
-                  }
-                  const viewport = list.getScrollableNode();
-                  const targetRow = list.getState?.()?.elementAtIndex(item.rowIndex);
-                  if (!viewport || !targetRow) return;
-                  const offset =
-                    targetRow.getBoundingClientRect().top -
-                    viewport.getBoundingClientRect().top -
-                    TIMELINE_MINIMAP_TARGET_OFFSET;
-                  if (Math.abs(offset) > 1) {
-                    viewport.scrollBy({ top: offset, behavior: reduceMotion ? "auto" : "smooth" });
-                  }
-                });
+                void list
+                  .scrollToIndex({
+                    index: item.rowIndex,
+                    animated: !reduceMotion,
+                    viewOffset: TIMELINE_MINIMAP_TARGET_OFFSET,
+                  })
+                  .then(() => {
+                    if (
+                      request !== minimapNavigationRequestRef.current ||
+                      listRef.current !== list
+                    ) {
+                      return;
+                    }
+                    const viewport = list.getScrollableNode();
+                    const targetRow = list.getState?.()?.elementAtIndex(item.rowIndex);
+                    if (!viewport || !targetRow) return;
+                    const offset =
+                      targetRow.getBoundingClientRect().top -
+                      viewport.getBoundingClientRect().top -
+                      TIMELINE_MINIMAP_TARGET_OFFSET;
+                    if (Math.abs(offset) > 1) {
+                      viewport.scrollBy({
+                        top: offset,
+                        behavior: reduceMotion ? "auto" : "smooth",
+                      });
+                    }
+                  });
               }}
             />
           </TooltipScrollDismissArea>

@@ -10,7 +10,9 @@ export function resolveComposerControlsOwnership(input: {
   const accessDisplay = input.collapsed ? ("icon" as const) : ("label" as const);
   const showModeBlock = true;
   const blockIds = ["effort", ...(showModeBlock ? ["mode"] : [])];
-  const hiddenBlockIds = blockIds.slice(Math.max(0, blockIds.length - input.measuredHiddenBlockCount));
+  const hiddenBlockIds = blockIds.slice(
+    Math.max(0, blockIds.length - input.measuredHiddenBlockCount),
+  );
   const modeHidden = hiddenBlockIds.includes("mode");
   const effortHidden = hiddenBlockIds.includes("effort");
   const overflowShowsPermissions = modeHidden;

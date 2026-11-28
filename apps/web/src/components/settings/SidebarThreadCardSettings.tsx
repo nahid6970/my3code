@@ -89,12 +89,14 @@ export function SidebarThreadCardSettings(props: {
             ) : null}
             {props.fields.pullRequest ? (
               <span className="inline-flex items-center gap-1 rounded px-1 text-secondary-label">
-                <PullRequestGlyph.pullRequest aria-hidden className="size-3" />{"#42"}
+                <PullRequestGlyph.pullRequest aria-hidden className="size-3" />
+                {"#42"}
               </span>
             ) : null}
             {props.fields.issues ? (
               <span className="inline-flex items-center gap-1 rounded px-1 text-secondary-label">
-                <CircleDotIcon aria-hidden className="size-3" />{"T3-18"}
+                <CircleDotIcon aria-hidden className="size-3" />
+                {"T3-18"}
               </span>
             ) : null}
             {props.fields.diffStats ? (

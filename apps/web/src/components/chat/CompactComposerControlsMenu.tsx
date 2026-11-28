@@ -46,7 +46,9 @@ export const CompactComposerControlsMenu = memo(function CompactComposerControls
       </MenuTrigger>
       <MenuPopup align="start" {...composerFloatingLayerProps}>
         {props.showEffort ? <div className="px-2 py-1.5">{props.effortControl}</div> : null}
-        {props.showEffort && props.showPermissions ? <div className="mx-2 border-t border-border/70" /> : null}
+        {props.showEffort && props.showPermissions ? (
+          <div className="mx-2 border-t border-border/70" />
+        ) : null}
         {props.showPermissions ? (
           <ComposerPermissionsSection
             runtimeMode={props.runtimeMode}

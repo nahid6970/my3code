@@ -8,7 +8,11 @@ import { msg } from "gt-react";
 
 import { isWebUrl } from "./browser/webUrl";
 import { requestConfirmDialog } from "./confirmDialog";
-import { dismissContextMenu, showContextMenuFallback } from "./contextMenuFallback";
+import {
+  dismissContextMenu,
+  ensureItemIconImages,
+  showContextMenuFallback,
+} from "./contextMenuFallback";
 import { readBrowserClientSettings, writeBrowserClientSettings } from "./clientPersistenceStorage";
 import { m } from "./i18n/messages";
 
@@ -54,10 +58,15 @@ export function createLocalApi(): LocalApi {
         position?: { x: number; y: number },
         source?: ContextMenuSource,
       ): Promise<T | null> => {
+        const enrichedItems = await ensureItemIconImages(items);
         if (window.desktopBridge) {
-          return window.desktopBridge.showContextMenu(items, position, source) as Promise<T | null>;
+          return window.desktopBridge.showContextMenu(
+            enrichedItems,
+            position,
+            source,
+          ) as Promise<T | null>;
         }
-        return showContextMenuFallback(items, position, source);
+        return showContextMenuFallback(enrichedItems, position, source);
       },
       // Unlike native menus, the DOM fallback needs dismissal when underlying state disappears.
       close: async () => {

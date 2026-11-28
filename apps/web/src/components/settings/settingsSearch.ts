@@ -485,7 +485,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Thread card details"),
     to: "/settings/general",
     searchTerms: [
-      msg("sidebar cards customize hide machine name activity provider icons pull requests issues diff terminal"),
+      msg(
+        "sidebar cards customize hide machine name activity provider icons pull requests issues diff terminal",
+      ),
     ],
   },
   {

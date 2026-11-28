@@ -123,9 +123,7 @@ export function TimelineMinimap({
               resolvedActiveIndex === null ? null : Math.abs(index - resolvedActiveIndex);
             const messageText = item.userText?.slice(0, 120).trim().replace(/\s+/gu, " ");
             const accessibleText =
-              messageText && messageText.length > 0
-                ? messageText
-                : gt("User message");
+              messageText && messageText.length > 0 ? messageText : gt("User message");
             const isCurrent = index === resolvedCurrentIndex;
             const dotTabIndex = resolvedCurrentIndex === null ? index === 0 : isCurrent;
 
@@ -176,7 +174,9 @@ export function TimelineMinimap({
                   data-minimap-strip
                   style={{
                     backgroundColor:
-                      isCurrent || activeDistance === 0 ? "var(--color-info-foreground)" : undefined,
+                      isCurrent || activeDistance === 0
+                        ? "var(--color-info-foreground)"
+                        : undefined,
                   }}
                   ref={(node) => {
                     if (node) {

@@ -24,10 +24,7 @@ import { cn } from "~/lib/utils";
 import { resolveComposerTraitsInput } from "./composerProviderState";
 import { useApplyThreadModelPick } from "./useApplyThreadModelPick";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import {
-  ComposerReasoningControl,
-  ComposerPickerFooter,
-} from "./ComposerModelEffort";
+import { ComposerReasoningControl, ComposerPickerFooter } from "./ComposerModelEffort";
 import type { useComposerProviderModel } from "./useComposerProviderModel";
 import { resolveComposerControlsOwnership } from "./composerControlsOwnership";
 
@@ -161,25 +158,29 @@ export function ComposerControlsBar(props: {
     onPromptEdit,
   });
   const restingBlockDefs = [
-        {
-          id: "effort",
-          content: <ComposerReasoningControl traits={traitsInput} size={controlSize} />,
-        },
-        ...(showModeBlock ? [{
-          id: "mode",
-          content: (
-            <ComposerFooterModeControls
-              runtimeMode={compatibleRuntimeMode}
-              runtimeModeOptions={compatibleRuntimeModeOptions}
-              size={controlSize}
-              hidden={composerControlsHidden || restingHiddenBlockCount > 0}
-              accessDisplay={accessDisplay}
-              emphasized={!accessMatchesDefault}
-              onRuntimeModeChange={handleRuntimeModeChange}
-            />
-          ),
-        }] : []),
-      ];
+    {
+      id: "effort",
+      content: <ComposerReasoningControl traits={traitsInput} size={controlSize} />,
+    },
+    ...(showModeBlock
+      ? [
+          {
+            id: "mode",
+            content: (
+              <ComposerFooterModeControls
+                runtimeMode={compatibleRuntimeMode}
+                runtimeModeOptions={compatibleRuntimeModeOptions}
+                size={controlSize}
+                hidden={composerControlsHidden || restingHiddenBlockCount > 0}
+                accessDisplay={accessDisplay}
+                emphasized={!accessMatchesDefault}
+                onRuntimeModeChange={handleRuntimeModeChange}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
   // Its own element, so typing (which rebuilds the controls around it) leaves it cached.
   const composerModelPicker = (
     <ComposerModelPicker
