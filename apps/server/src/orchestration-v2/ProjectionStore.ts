@@ -1072,6 +1072,7 @@ export function applyToProjection(
     case "thread.pinned":
     case "thread.unpinned":
     case "thread.pin-reordered":
+    case "thread.project-changed":
     case "thread.metadata-updated":
     case "thread.runtime-mode-updated":
     case "thread.interaction-mode-updated":
@@ -2551,6 +2552,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             case "thread.unpinned":
             case "thread.pin-reordered":
             case "thread.active-reordered":
+            case "thread.project-changed":
             case "thread.tags-updated":
             case "thread.visited":
             case "thread.marked-unread":
@@ -3425,6 +3427,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             event.type !== "thread.unpinned" &&
             event.type !== "thread.pin-reordered" &&
             event.type !== "thread.active-reordered" &&
+            event.type !== "thread.project-changed" &&
             event.type !== "thread.tags-updated" &&
             event.type !== "thread.visited" &&
             event.type !== "thread.visit-recorded" &&
