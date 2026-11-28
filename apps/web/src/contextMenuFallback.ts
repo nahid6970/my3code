@@ -179,6 +179,35 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
   ],
 };
 
+const ICON_COLORS: Record<string, string> = {
+  archive: "#94a3b8",
+  check: "#4ade80",
+  "circle-check": "#4ade80",
+  clock: "#a78bfa",
+  copy: "#cbd5e1",
+  folder: "#60a5fa",
+  "folder-input": "#60a5fa",
+  "folder-plus": "#60a5fa",
+  "folder-tree": "#60a5fa",
+  "git-branch": "#fb923c",
+  hash: "#cbd5e1",
+  "mail-open": "#60a5fa",
+  "message-square": "#cbd5e1",
+  "message-square-plus": "#60a5fa",
+  pencil: "#22d3ee",
+  pin: "#fbbf24",
+  "pin-off": "#fbbf24",
+  "refresh-cw": "#22d3ee",
+  settings: "#94a3b8",
+  "text-search": "#22d3ee",
+  timer: "#a78bfa",
+  trash: "#f87171",
+  "user-plus": "#4ade80",
+};
+
+const DESTRUCTIVE_ICON_COLOR = "#f87171";
+const DEFAULT_ICON_COLOR = "#cbd5e1";
+
 function createIconElement(name: string, tone: "neutral" | "destructive"): SVGSVGElement | null {
   const paths = ICON_PATHS[name];
   if (!paths || typeof document.createElementNS !== "function") {
@@ -193,12 +222,9 @@ function createIconElement(name: string, tone: "neutral" | "destructive"): SVGSV
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute(
-    "class",
-    tone === "destructive"
-      ? "size-4.5 shrink-0 sm:size-4"
-      : "size-4.5 shrink-0 text-muted-foreground sm:size-4",
-  );
+  svg.setAttribute("class", "block size-4 shrink-0 translate-y-px");
+  svg.style.color =
+    tone === "destructive" ? DESTRUCTIVE_ICON_COLOR : (ICON_COLORS[name] ?? DEFAULT_ICON_COLOR);
   for (const node of paths) {
     const child = document.createElementNS(SVG_NS, node.tag);
     for (const [key, value] of Object.entries(node.attrs)) {
@@ -261,7 +287,11 @@ export async function ensureItemIconImages<T extends string>(
     items.map(async (item) => {
       let iconImage = item.iconImage;
       if (iconImage === undefined && typeof item.icon === "string") {
-        iconImage = await getOrRenderIconDataUrl(item.icon);
+        const color =
+          item.destructive === true || item.id === "delete"
+            ? DESTRUCTIVE_ICON_COLOR
+            : (ICON_COLORS[item.icon] ?? DEFAULT_ICON_COLOR);
+        iconImage = await getOrRenderIconDataUrl(item.icon, color);
       }
       let children = item.children;
       if (children && children.length > 0) {
@@ -276,13 +306,14 @@ export async function ensureItemIconImages<T extends string>(
   );
 }
 
-function getOrRenderIconDataUrl(iconName: string): Promise<string | undefined> {
-  let cached = iconDataUrlCache.get(iconName);
+function getOrRenderIconDataUrl(iconName: string, color: string): Promise<string | undefined> {
+  const cacheKey = `${iconName}:${color}`;
+  let cached = iconDataUrlCache.get(cacheKey);
   if (cached) return cached;
   const promise = (async () => {
     const paths = ICON_PATHS[iconName];
     if (!paths || typeof document === "undefined") return undefined;
-    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">${paths
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">${paths
       .map(
         (p) =>
           `<${p.tag} ${Object.entries(p.attrs)
@@ -312,7 +343,7 @@ function getOrRenderIconDataUrl(iconName: string): Promise<string | undefined> {
       URL.revokeObjectURL(url);
     }
   })();
-  iconDataUrlCache.set(iconName, promise);
+  iconDataUrlCache.set(cacheKey, promise);
   return promise;
 }
 
@@ -548,7 +579,7 @@ export async function showContextMenuFallback<T extends string>(
           const image = document.createElement("img");
           image.src = item.iconImage;
           image.alt = "";
-          image.className = "size-4.5 shrink-0 sm:size-4";
+          image.className = "block size-4 shrink-0 translate-y-px";
           button.appendChild(image);
         } else if (typeof item.icon === "string") {
           const icon = createIconElement(item.icon, isLeafDestructive ? "destructive" : "neutral");

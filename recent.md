@@ -6,6 +6,7 @@ T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop
 
 ## 2. Latest Implementation
 
+- **Context menu icons** — The web fallback and desktop menu use colored PNGs generated from the shared SVG path set. Action categories have distinct colors, destructive actions are red, and web menu icons are block-aligned with a one-pixel optical offset to center them beside labels.
 - **Settled thread bulk deletion** — The Settled shelf has Select all / Clear controls, supports existing Ctrl/Cmd-click and Shift-click selection, and exposes Delete selected for its selected threads. Bulk deletion uses the same permission checks, confirmation, per-thread deletion handling, and error toast as the context menu.
 - **Thread project reassignment** — The web and desktop thread menus can move a thread to another project in the same environment. The searchable picker is shared by the sidebar and thread header.
   - The client dispatches `thread.change-project`; the server updates the persisted thread projection and emits `thread.project-changed`.
@@ -15,7 +16,7 @@ T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop
 
 ## 3. Critical Context
 
-The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale. Settled shelf selection is scoped to the loaded `settledThreads` collection.
+The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale. Settled shelf selection is scoped to the loaded `settledThreads` collection. Context menu SVG paths and their semantic colors live together in `contextMenuFallback.ts`.
 
 ## 4. Pending Task
 
