@@ -40,6 +40,7 @@ T3 Code is an open-source control plane for coding agents. It gives the coding a
 - [Welcome page](./welcome-page.md) — First-run setup and importing existing Claude, Codex, and Pi sessions.
 - [FAQ](./faq.md) — Common questions on pricing, subscriptions, privacy, limits, and troubleshooting.
 - [Threads from older T3 Code versions](./thread-migration.md) — V1 → V2 database migration and recovery backups.
+- [Headless backend guide](./t3-backend-guide.md) — Installing, running, updating, and removing the headless server.
 
 ### Everyday workflow
 

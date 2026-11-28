@@ -8,9 +8,10 @@ T3 Code is a TypeScript monorepo for a multi-provider coding assistant. It share
 
 - Use the repo-pinned toolchain: Node `26.13.1`, pnpm `12.14.0`, and Vite+ (`vp`).
 - From the repository root, install dependencies with `vp i`.
-- Read [recent.md](recent.md) for the latest implementation details and the next validation task.
-- Windows setup and packaging notes: `C:\Users\nahid\delta\md\t3code-windows-build.md`.
-- Backend installation and service notes: `C:\Users\nahid\delta\md\t3-backend-guide.md`.
+- Read [recent.md](recent.md) for the latest implementation handoff.
+- Use the [Markdown map](docs/markdown-map.md) to find where each kind of documentation belongs.
+- Windows setup and packaging notes: [Windows build guide](docs/operations/t3code-windows-build.md).
+- Backend installation and service notes: [headless backend guide](docs/user/t3-backend-guide.md).
 
 ## Common commands
 
@@ -50,3 +51,7 @@ The chat timeline uses LegendList virtualization. Keep row indices aligned with 
 2. Keep desktop and web behavior consistent when editing shared `apps/web` components.
 3. Run focused lint/typecheck commands relevant to the change. Run tests when requested or when needed to validate a test-specific change.
 4. Update `recent.md` with the latest files changed, implementation details, critical context, and one next task.
+
+## Documentation map
+
+`dev.md` is the maintainer's main entry point for project orientation, setup, common commands, architecture landmarks, and the change workflow. Keep durable how-to material in the appropriate guide and link it here instead of copying it. Keep `recent.md` focused on the latest handoff and active next step. See the [Markdown map](docs/markdown-map.md) for the directory tree and placement rules.

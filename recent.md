@@ -8,6 +8,7 @@ T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop
   - The client dispatches `thread.change-project`; the server updates the persisted thread projection and emits `thread.project-changed`.
   - The MCP `t3_thread_organize` tool also supports `change_project` with `targetProjectId`.
   - The client projection reducer handles `thread.project-changed` so the open thread reflects the new project.
+- **Documentation organization** — `dev.md` is the maintainer entry point, `recent.md` holds the latest handoff, and [docs/markdown-map.md](docs/markdown-map.md) explains where durable documentation belongs. The Windows build and headless backend guides now live under `docs/operations/` and `docs/user/` respectively.
 
 ## 3. Critical Context
 The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale.

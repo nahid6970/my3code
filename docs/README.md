@@ -35,6 +35,7 @@ New to T3 Code? Start with the **[User Guide & Index](./user/README.md)** for ho
 
 Start with the [development runbook](./operations/00_development.md),
 [contribution policy](../CONTRIBUTING.md), and [trademark policy](../TRADEMARK.md).
+For this checkout's maintainer overview and documentation placement rules, see [dev.md](../dev.md) and the [Markdown map](./markdown-map.md).
 
 Internal docs preserve architectural decisions, trust boundaries, conventions, and cross-cutting
 traps that the source alone does not explain. Most code changes do not need an internal
@@ -70,3 +71,4 @@ anything.
 - [03 · Release](./operations/03_release.md)
 - [04 · Observability](./operations/04_observability.md)
 - [05 · Relay observability](./operations/05_relay-observability.md)
+- [Windows build guide](./operations/t3code-windows-build.md)
