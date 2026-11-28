@@ -4,15 +4,13 @@
 T3 Code is a TypeScript monorepo with a React/Vite+ web client, Electron desktop shell, and Node-based local/headless backend, sharing contracts and UI across multiple coding-agent providers. Its goal is to provide a multi-provider coding assistant across desktop, web, and remote sessions.
 
 ## 2. Latest Implementation
-- **Thread project reassignment (backend + frontend)** — Complete feature to move threads between projects.
-  - **Backend**: `thread.change-project` command in contracts, `t3_thread_organize` MCP tool extended, Orchestrator processes project changes.
-  - **Frontend**: 
-    - `apps/web/src/components/threadActionMenu.logic.ts` — Added "move-to-project" action to context menu.
-    - `apps/web/src/components/MoveThreadToProjectDialog.tsx` — Project picker dialog with available projects list.
-    - `apps/web/src/lib/moveThreadToProject.ts` — Utility function to call MCP tool for project change.
+- **Thread project reassignment** — The web and desktop thread menus can move a thread to another project in the same environment. The searchable picker is shared by the sidebar and thread header.
+  - The client dispatches `thread.change-project`; the server updates the persisted thread projection and emits `thread.project-changed`.
+  - The MCP `t3_thread_organize` tool also supports `change_project` with `targetProjectId`.
+  - The client projection reducer handles `thread.project-changed` so the open thread reflects the new project.
 
 ## 3. Critical Context
-The move-to-project feature is fully implemented end-to-end. Backend processes the `thread.change-project` command and emits `thread.project-changed` events. Frontend provides a context menu option that opens a dialog to select the target project, then calls the MCP tool. The dialog filters out the current project and shows all other available projects with their icons and paths. Integration with the Sidebar component is pending - need to wire up the context menu handler to open the dialog and handle the response.
+The server projection store must persist `thread.project-changed` alongside the other thread update events. The sidebar and open-thread projections both need to apply the change or the thread may remain listed in its old project or leave the open view stale.
 
 ## 4. Pending Task
-Wire the "move-to-project" menu action in Sidebar.tsx to open the MoveThreadToProjectDialog and refresh the sidebar after successful project change. Test the complete flow end-to-end.
+No pending implementation task for thread project reassignment.
