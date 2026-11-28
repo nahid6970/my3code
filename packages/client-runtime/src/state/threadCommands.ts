@@ -27,6 +27,7 @@ import {
   type InterruptThreadTurnInput,
   type UpdateThreadMetadataInput,
   archiveThread,
+  changeThreadProject,
   closeGuestShare,
   resolveGuestMessage,
   cancelQueuedRun,
@@ -267,6 +268,12 @@ export function createThreadEnvironmentAtoms<R, E>(
     archive: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:archive",
       execute: archiveThread,
+      scheduler,
+      concurrency,
+    }),
+    changeProject: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:change-project",
+      execute: changeThreadProject,
       scheduler,
       concurrency,
     }),
@@ -535,6 +542,7 @@ export function createThreadEnvironmentAtoms<R, E>(
     ...sent,
     delete: rowAction(sent.delete),
     archive: rowAction(sent.archive),
+    changeProject: rowAction(sent.changeProject),
     unarchive: rowAction(sent.unarchive),
     settle: rowAction(sent.settle),
     unsettle: rowAction(sent.unsettle),

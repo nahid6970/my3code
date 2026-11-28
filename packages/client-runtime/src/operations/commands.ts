@@ -112,6 +112,9 @@ export interface DeleteThreadInput extends ThreadCommandInput {
 export type ArchiveThreadInput = ThreadCommandInput;
 export type UnarchiveThreadInput = ThreadCommandInput;
 export type SettleThreadInput = ThreadCommandInput;
+export interface ChangeThreadProjectInput extends ThreadCommandInput {
+  readonly targetProjectId: ProjectId;
+}
 
 export interface UnsettleThreadInput extends ThreadCommandInput {
   readonly reason: "user";
@@ -592,6 +595,17 @@ export const unarchiveThread = Effect.fn("EnvironmentCommands.unarchiveThread")(
   input: UnarchiveThreadInput,
 ) {
   return yield* simpleThreadCommand("thread.unarchive", input);
+});
+
+export const changeThreadProject = Effect.fn("EnvironmentCommands.changeThreadProject")(function* (
+  input: ChangeThreadProjectInput,
+) {
+  return yield* dispatch({
+    type: "thread.change-project",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+    targetProjectId: input.targetProjectId,
+  });
 });
 
 export const settleThread = Effect.fn("EnvironmentCommands.settleThread")(function* (

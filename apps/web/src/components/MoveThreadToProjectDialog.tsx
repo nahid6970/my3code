@@ -1,111 +1,167 @@
-import { ProjectId, type ScopedThreadRef } from "@t3tools/contracts";
-import { msg, T, useGT } from "gt-react";
-import { FolderIcon } from "lucide-react";
-import { useState } from "react";
+import type { ProjectId, ScopedThreadRef } from "@t3tools/contracts";
+import { T, useGT } from "gt-react";
+import { FolderIcon, SearchIcon } from "lucide-react";
+import { useEffect, useState, type KeyboardEvent } from "react";
+import { create } from "zustand";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./ui/alert-dialog";
+  Dialog,
+  DialogPanel,
+  DialogPopup,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { ProjectFavicon } from "./ProjectFavicon";
-import { useProjects } from "../state/entities";
-import { readThreadShell } from "../state/entities";
+import { useProjects, readThreadShell } from "../state/entities";
 
-export interface MoveThreadToProjectDialogProps {
-  readonly open: boolean;
+type MoveChoice = { readonly targetProjectId: ProjectId };
+type Request = {
   readonly threadRef: ScopedThreadRef;
-  readonly onConfirm: (targetProjectId: ProjectId) => void | Promise<void>;
-  readonly onCancel: () => void;
+  readonly resolve: (choice: MoveChoice | null) => void;
+};
+const useRequest = create<{ request: Request | null }>(() => ({ request: null }));
+
+export function requestMoveThreadToProject(
+  threadRef: ScopedThreadRef,
+): Promise<MoveChoice | null> {
+  useRequest.getState().request?.resolve(null);
+  return new Promise((resolve) => useRequest.setState({ request: { threadRef, resolve } }));
 }
 
-export function MoveThreadToProjectDialog(props: MoveThreadToProjectDialogProps) {
-  const { open, threadRef, onConfirm, onCancel } = props;
+function finish(choice: MoveChoice | null) {
+  const request = useRequest.getState().request;
+  useRequest.setState({ request: null });
+  request?.resolve(choice);
+}
+
+export function MoveThreadToProjectDialogHost() {
+  const request = useRequest((state) => state.request);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- resolves any pending move request promise with null when the dialog host unmounts
+  useEffect(() => () => finish(null), []);
+  return request ? <MoveThreadToProjectDialog threadRef={request.threadRef} /> : null;
+}
+
+function MoveThreadToProjectDialog(props: { readonly threadRef: ScopedThreadRef }) {
+  const { threadRef } = props;
   const gt = useGT();
   const thread = readThreadShell(threadRef);
   const projects = useProjects(threadRef.environmentId);
-  
-  // Filter out the current project
-  const availableProjects = projects.filter(
-    (project) => project.id !== thread?.projectId
-  );
 
-  const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(
-    availableProjects[0]?.id ?? null
+  const availableProjects = projects.filter((project) => project.id !== thread?.projectId);
+  const [query, setQuery] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<ProjectId | null>(null);
+  const filteredProjects = availableProjects.filter((project) =>
+    `${project.title} ${project.workspaceRoot}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleConfirm = async () => {
-    if (!selectedProjectId) return;
-    setIsSubmitting(true);
-    try {
-      await onConfirm(selectedProjectId);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const selectedProject =
+    filteredProjects.find((project) => project.id === selectedProjectId)?.id ??
+    filteredProjects[0]?.id ??
+    null;
+  const handleConfirm = () => {
+    if (!selectedProject) return;
+    finish({ targetProjectId: selectedProject });
+  };
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const currentIndex = filteredProjects.findIndex((project) => project.id === selectedProject);
+    const delta = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex =
+      currentIndex < 0
+        ? 0
+        : (currentIndex + delta + filteredProjects.length) % filteredProjects.length;
+    const nextProject = filteredProjects[nextIndex];
+    if (nextProject) setSelectedProjectId(nextProject.id);
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            <T>Move thread to project</T>
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            <T>Select the project where you want to move this thread.</T>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        
-        <div className="flex flex-col gap-2 py-4">
-          {availableProjects.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              <T>No other projects available</T>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) finish(null);
+      }}
+    >
+      <DialogPopup className="max-h-[min(52dvh,28rem)] sm:max-w-xl">
+        <form
+          className="flex min-h-0 flex-col"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleConfirm();
+          }}
+        >
+          <DialogHeader className="gap-3 px-4 pb-3 pt-4">
+            <DialogTitle className="text-lg">
+              <T>Move thread to project</T>
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+              <Input
+                type="search"
+                autoFocus
+                aria-label={gt("Search projects")}
+                placeholder={gt("Search...")}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                className="border-0 bg-transparent shadow-none before:hidden focus-within:ring-0"
+              />
             </div>
-          ) : (
-            availableProjects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => setSelectedProjectId(project.id)}
-                className={`flex items-center gap-3 rounded-md border px-4 py-3 text-left transition-colors hover:bg-accent ${
-                  selectedProjectId === project.id
-                    ? "border-primary bg-accent"
-                    : "border-border"
-                }`}
-              >
-                {project.projectIcon || project.faviconPath ? (
-                  <ProjectFavicon project={project} className="size-5 shrink-0" />
-                ) : (
-                  <FolderIcon className="size-5 shrink-0 text-muted-foreground" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="truncate font-medium">{project.title}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {project.workspaceRoot}
+          </DialogHeader>
+          <div className="min-h-0 flex-1">
+            <DialogPanel className="space-y-1 px-2 py-1">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                <T>Projects</T>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {filteredProjects.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                    {availableProjects.length === 0 ? (
+                      <T>No other projects available</T>
+                    ) : (
+                      <T>No matching projects.</T>
+                    )}
                   </div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel} disabled={isSubmitting}>
-            {gt("Cancel")}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleConfirm}
-            disabled={!selectedProjectId || isSubmitting}
-          >
-            {isSubmitting ? gt("Moving…") : gt("Move")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+                ) : (
+                  filteredProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => setSelectedProjectId(project.id)}
+                      className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent ${
+                        selectedProject === project.id
+                          ? "bg-accent"
+                          : ""
+                      }`}
+                    >
+                      {project.projectIcon || project.faviconPath ? (
+                        <ProjectFavicon project={project} className="size-4 shrink-0" />
+                      ) : (
+                        <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <div className="min-w-0 flex-1 leading-5">
+                        <div className="truncate text-sm font-medium">{project.title}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {project.workspaceRoot}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </DialogPanel>
+          </div>
+          <DialogFooter className="px-4 py-3">
+            <Button type="button" variant="outline" onClick={() => finish(null)}>
+              <T>Cancel</T>
+            </Button>
+            <Button type="submit" disabled={!selectedProject}>
+              <T>Move</T>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogPopup>
+    </Dialog>
   );
 }

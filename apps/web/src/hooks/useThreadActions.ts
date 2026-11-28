@@ -64,6 +64,7 @@ import { showThreadUndoNotice } from "./showThreadUndoNotice";
 import { useAtomCommand } from "../state/use-atom-command";
 import { threadTriagePermitted, useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
+import { requestMoveThreadToProject } from "../components/MoveThreadToProjectDialog";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -305,6 +306,9 @@ export function useThreadActions() {
     reportFailure: false,
   });
   const unarchiveThreadMutation = useOrchestrationCommand(threadEnvironment.unarchive, {
+    reportFailure: false,
+  });
+  const changeThreadProjectMutation = useOrchestrationCommand(threadEnvironment.changeProject, {
     reportFailure: false,
   });
   const deleteThreadMutation = useOrchestrationCommand(threadEnvironment.delete, {
@@ -1058,6 +1062,34 @@ export function useThreadActions() {
     return deleteThread(target);
   };
 
+  const moveThreadToProject = async (target: ScopedThreadRef) => {
+    const permissionFailure = threadOperationFailure(target);
+    if (permissionFailure) return permissionFailure;
+
+    const choice = await requestMoveThreadToProject(target);
+    if (!choice) {
+      return AsyncResult.success(undefined);
+    }
+
+    const result = await changeThreadProjectMutation({
+      environmentId: target.environmentId,
+      input: { threadId: target.threadId, targetProjectId: choice.targetProjectId },
+    });
+
+    if (result._tag === "Failure") {
+      return result;
+    }
+
+    toastManager.add(
+      stackedThreadToast({
+        type: "success",
+        title: m(msg("Thread moved successfully")),
+      }),
+    );
+
+    return AsyncResult.success(undefined);
+  };
+
   return {
     archiveThread,
     unarchiveThread,
@@ -1074,6 +1106,7 @@ export function useThreadActions() {
     reorderActiveThread,
     markThreadUnread,
     setThreadAutoSettle,
+    moveThreadToProject,
     turnThreadIntoProject: (target: ScopedThreadRef) =>
       createProjectFromThread({
         environmentId: target.environmentId,

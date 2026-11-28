@@ -93,6 +93,7 @@ export function useThreadActionMenu(input: {
     archiveThread,
     deleteThread,
     markThreadUnread,
+    moveThreadToProject,
     turnThreadIntoProject,
   } = useThreadActions();
   const regenerateThreadTitle = useOrchestrationCommand(threadEnvironment.regenerateTitle, {
@@ -270,6 +271,16 @@ export function useThreadActionMenu(input: {
         case "mark-unread":
           markThreadUnread(threadRef);
           return;
+        case "move-to-project": {
+          const result = await moveThreadToProject(threadRef);
+          if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+            failureToast(
+              m(msg("Failed to move thread")),
+              squashAtomCommandFailure(result),
+            );
+          }
+          return;
+        }
         case "share-guest":
           openGuestShareDialog(threadRef);
           return;
